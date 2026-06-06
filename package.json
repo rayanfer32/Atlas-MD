@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --check index.js && node --check Configurations.js && node --check Core.js",
-    "start": "node --max-old-space-size=8000 --expose-gc index.js"
+    "start": "node --max-old-space-size=8000 --expose-gc --import tsx index.js"
   },
   "repository": {
     "type": "git",
@@ -33,6 +33,8 @@
     "@google/genai": "^0.7.0",
     "@hapi/boom": "^10.0.1",
     "@napi-rs/canvas": "^0.1.97",
+    "@octokit/graphql": "^9.0.3",
+    "@octokit/rest": "^22.0.1",
     "@whiskeysockets/baileys": "7.0.0-rc.9",
     "axios": "^1.14.0",
     "canvacord": "^6.0.4",
@@ -70,6 +72,7 @@
     "qrcode-terminal": "^0.12.0",
     "quick.db": "^9.1.7",
     "remove.bg": "^1.3.0",
+    "tsx": "^4.22.4",
     "util": "^0.12.5",
     "uuid": "^13.0.0",
     "wa-sticker-formatter": "^4.4.4",

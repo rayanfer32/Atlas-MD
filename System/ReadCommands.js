@@ -7,7 +7,7 @@ async function readcommands() {
   commands.clear();
   const cmdfile = fs
     .readdirSync("./Plugins")
-    .filter((file) => file.endsWith(".js"));
+    .filter((file) => file.endsWith(".js") || file.endsWith(".ts"));
   for (const file of cmdfile) {
     try {
       const module = await import(`../Plugins/${file}`);
@@ -18,7 +18,13 @@ async function readcommands() {
       }
       commands.set(cmdfiles.name, cmdfiles);
     } catch (err) {
-      console.error(`[ EXCEPTION ] Failed to load plugin ${file}: ${err.message}`);
+      if (file.endsWith(".ts")) {
+        console.warn(
+          `[ ATLAS ] Skipping TypeScript plugin ${file}: ${err.message}. (Run with 'npm run start:ts' or Bun to support TypeScript plugins)`
+        );
+      } else {
+        console.error(`[ EXCEPTION ] Failed to load plugin ${file}: ${err.message}`);
+      }
     }
   }
 }
