@@ -121,20 +121,36 @@ export default {
     while (users.length < 1) users.push(m.sender);
     const reactant = users[0];
     const single = reactant === m.sender;
-    const { url } = await fetchJson(`https://api.waifu.pics/sfw/${reaction}`);
-    const result = await getBuffer(url);
-    const buffer = await GIFBufferToVideoBuffer(Buffer.from(result, "utf-8"));
-    await Atlas.sendMessage(
-      m.from,
-      {
-        video: buffer,
-        gifPlayback: true,
-        caption: `*@${m.sender.split("@")[0]} ${suitableWords[reaction]} ${
-          single ? "Themselves" : `@${reactant.split("@")[0]}`
-        }*`,
-        mentions: [m.sender, reactant],
-      },
-      { quoted: m }
-    );
+
+    try {
+      const data = await fetchJson(`https://api.waifu.im/images?IsAnimated=True`);
+      if (!data || data instanceof Error || !data.items || !data.items[0] || !data.items[0].url) {
+        throw new Error("Failed to fetch image from waifu.im API.");
+      }
+
+      const result = await getBuffer(data.items[0].url);
+      if (!result || result instanceof Error) {
+        throw new Error("Failed to download reaction media buffer.");
+      }
+
+      const buffer = await GIFBufferToVideoBuffer(result);
+
+      await Atlas.sendMessage(
+        m.from,
+        {
+          video: buffer,
+          gifPlayback: true,
+          caption: `*@${m.sender.split("@")[0]} ${suitableWords[reaction]} ${
+            single ? "Themselves" : `@${reactant.split("@")[0]}`
+          }*`,
+          mentions: [m.sender, reactant],
+        },
+        { quoted: m }
+      );
+    } catch (error) {
+      console.error("[REACTION ERROR]", error);
+      if (doReact) await doReact("❌");
+      return void m.reply(`Failed to execute the reaction command. Error: ${error.message || error}`);
+    }
   },
 };
