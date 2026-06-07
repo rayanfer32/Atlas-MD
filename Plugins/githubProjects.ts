@@ -3,6 +3,7 @@ import { graphql } from "@octokit/graphql";
 import fs from "fs";
 import path from "path";
 import os from "os";
+import type { WAMessage, AtlasClient, QuotedMessage } from "../types/index.js";
 
 // 1. In-memory draft state
 interface DraftMessage {
@@ -413,15 +414,15 @@ export default {
   uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove"],
   description: "GitHub Projects ticketing system inside WhatsApp group chats",
   start: async (
-    Atlas: any,
-    m: any,
+    Atlas: AtlasClient,
+    m: WAMessage,
     { inputCMD, text, args, prefix, doReact, quoted }: {
       inputCMD: string;
       text: string;
       args: string[];
       prefix: string;
       doReact: (emoji: string) => Promise<void>;
-      quoted: any;
+      quoted: QuotedMessage | null;
     }
   ) => {
 
@@ -502,10 +503,10 @@ export default {
           return m.reply(`❗ \`${prefix}ghadd\` must be used as a *reply* to a message you want to attach.`);
         }
 
-        const senderId = m.quoted.sender || 'unknown';
-        const senderName = m.quoted.sender.split('@')[0] || 'Unknown';
+        const senderId = m.quoted?.sender || 'unknown';
+        const senderName = m.quoted?.sender?.split('@')[0] || 'Unknown';
         const senderNumber = senderId.split('@')[0] || senderId;
-        const messageId = m.quoted.id || `msg-${Date.now()}`;
+        const messageId = m.quoted?.id || `msg-${Date.now()}`;
         const timestamp = Date.now();
 
         console.log("quoted : ", m.quoted)
