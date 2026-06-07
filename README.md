@@ -1,9 +1,3 @@
-<p align="center">
-  <a href="https://github.com/FantoX/Atlas-MD">
-    <img src="https://i.imgur.com/MClOeqe.jpeg" width="100%">
-  </a>
-</p>
-
 <h1 align="center">⚡ Atlas MD</h1>
 
 <p align="center">
@@ -45,6 +39,10 @@
   <a href="https://cutt.ly/AtlasSupportStrict">
     <img src="https://img.shields.io/badge/Join%20Support%20Group-25D366?style=for-the-badge&logo=whatsapp&logoColor=white" width="200px">
   </a>
+</p>
+
+<p align="center">
+  <img src="./Assets/Advanced_Messaging_Bot_System_Architecture.png" alt="Atlas MD Architecture" width="900px">
 </p>
 
 ---
