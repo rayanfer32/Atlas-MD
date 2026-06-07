@@ -6,6 +6,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --check index.js && node --check Configurations.js && node --check Core.js",
+    "test:db": "node test-db.js",
     "start": "node --max-old-space-size=8000 --expose-gc --import tsx index.js"
   },
   "repository": {
