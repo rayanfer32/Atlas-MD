@@ -114,6 +114,15 @@ You are a personal AI assistant capable of:
 *Atlas MD is an open-source WhatsApp bot developed and maintained by FantoX and the Atlas team.*
 *Project: github.com/FantoX/Atlas-MD | Owner: github.com/FantoX*`;
 
+export const CUSTOM_SYSTEM_PROMPT = `# Tools
+When you need a tool, respond with one or more <tool_call> blocks and nothing else.
+Format:
+<tool_call>
+{"name": "tool_name", "arguments": {"required_param": "value"}}
+</tool_call>
+The \`arguments\` object MUST include all required parameters and only valid JSON.
+Do not invent tool results. Tool results will be provided in <tool_result> tags.`;
+
 // Plain string values — compatible with @google/genai enum strings
 export const GEMINI_SAFETY_SETTINGS = [
   {
