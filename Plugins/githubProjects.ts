@@ -23,6 +23,7 @@ interface Draft {
   createdByName: string;
   messages: DraftMessage[];
   createdAt: number;
+  draftStartedMsgKey?: any;
 }
 
 interface StatusOptionMap {
@@ -457,7 +458,7 @@ export default {
           return m.reply(`❗ Invalid Format.\n\n*Usage:* ${prefix}ghcreate <category>: <title>\n*Example:* ${prefix}ghcreate app: Login button does not work\n\n*Categories:* app, web, backend, admin`);
         }
 
-        const match = text.match(/^(\w+):\s+(.+)$/);
+        const match = text.match(/^(\w+):\s+([\s\S]+)$/);
         if (!match) {
           await doReact("❔");
           return m.reply(`❗ Invalid Format.\n\n*Usage:* ${prefix}ghcreate <category>: <title>\n*Example:* ${prefix}ghcreate app: Login button does not work`);
@@ -475,13 +476,22 @@ export default {
         const senderId = m.sender || 'unknown';
         const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
 
+        const previousDraft = draftService.getDraft();
+        if (previousDraft && previousDraft.draftStartedMsgKey) {
+          try {
+            await Atlas.sendMessage(m.from, { delete: previousDraft.draftStartedMsgKey });
+          } catch (err) {
+            console.error("Failed to delete previous draft started message:", err);
+          }
+        }
+
         const hadPrevious = draftService.hasDraft();
-        draftService.startDraft(title, category, senderId, senderName);
+        const draft = draftService.startDraft(title, category, senderId, senderName);
 
         const warning = hadPrevious ? '\n\n_Previous draft was cancelled._' : '';
 
         await doReact("🧩");
-        await m.reply(
+        const startMsg = await m.reply(
           `🧩 *Draft Started*${warning}\n\n` +
           `*Category:* \`${category}\`\n` +
           `*Title:* ${title}\n\n` +
@@ -489,6 +499,9 @@ export default {
           `Finish using:\n\`${prefix}ghdone\`\n\n` +
           `_Starting a new draft cancels the previous one._`
         );
+        if (startMsg && startMsg.key) {
+          draft.draftStartedMsgKey = startMsg.key;
+        }
         break;
       }
 
@@ -565,7 +578,7 @@ export default {
         }
 
         await doReact("⏳");
-        await m.reply("⏳ Creating GitHub issue...");
+        const creatingMsg = await m.reply("⏳ Creating GitHub issue...");
 
         try {
           const issue = await createIssue(octokit, graphqlClient, draft);
@@ -583,6 +596,22 @@ export default {
             }
           }
 
+          // Delete "Draft Started" and "Creating GitHub issue..." messages
+          if (draft.draftStartedMsgKey) {
+            try {
+              await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
+            } catch (err) {
+              console.error("Failed to delete draft started message:", err);
+            }
+          }
+          if (creatingMsg && creatingMsg.key) {
+            try {
+              await Atlas.sendMessage(m.from, { delete: creatingMsg.key });
+            } catch (err) {
+              console.error("Failed to delete creating message:", err);
+            }
+          }
+
           draftService.clearDraft();
 
           await doReact("✅");
@@ -594,6 +623,13 @@ export default {
           );
         } catch (err: any) {
           console.error("Failed to create GitHub issue:", err);
+          if (creatingMsg && creatingMsg.key) {
+            try {
+              await Atlas.sendMessage(m.from, { delete: creatingMsg.key });
+            } catch (deleteErr) {
+              console.error("Failed to delete creating message on failure:", deleteErr);
+            }
+          }
           await doReact("❌");
           await m.reply(`❌ Failed to create ticket. Error: ${err.message}`);
         }
@@ -614,6 +650,15 @@ export default {
                 fs.unlinkSync(msg.imagePath);
               }
             } catch { }
+          }
+        }
+
+        // Delete "Draft Started" message
+        if (draft.draftStartedMsgKey) {
+          try {
+            await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
+          } catch (err) {
+            console.error("Failed to delete draft started message on cancel:", err);
           }
         }
 
