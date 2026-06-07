@@ -3,6 +3,7 @@ import axios from "axios";
 import path from "path";
 import { pathToFileURL } from "url";
 import os from "os";
+import { readcommands } from "../System/ReadCommands.js";
 let mergedCommands = [
   "help",
   "h",
@@ -20,6 +21,7 @@ let mergedCommands = [
   "sys",
   "restart",
   "reboot",
+  "reload",
 ];
 
 export default {
@@ -181,15 +183,12 @@ export default {
           "https://api.github.com/repos/FantoX/Atlas-MD",
         );
         let repo = repoInfo.data;
-        let txt = `            🧣 *${botName}'s Script* 🧣\n\n*🎀 Total Forks:* ${
-          repo.forks_count
-        }\n*⭐ Total Stars:* ${repo.stargazers_count}\n*📜 License:* ${
-          repo.license.name
-        }\n*📁 Repo Size:* ${(repo.size / 1024).toFixed(
-          2,
-        )} MB\n*📅 Last Updated:* ${repo.updated_at}\n\n*🔗 Repo Link:* ${
-          repo.html_url
-        }\n\n❝ Dont forget to give a Star ⭐ to the repo. It's made with restless hardwork by *Team ATLAS*. ❞\n\n*©️ Team ATLAS- ${new Date().getFullYear()}*`;
+        let txt = `            🧣 *${botName}'s Script* 🧣\n\n*🎀 Total Forks:* ${repo.forks_count
+          }\n*⭐ Total Stars:* ${repo.stargazers_count}\n*📜 License:* ${repo.license.name
+          }\n*📁 Repo Size:* ${(repo.size / 1024).toFixed(
+            2,
+          )} MB\n*📅 Last Updated:* ${repo.updated_at}\n\n*🔗 Repo Link:* ${repo.html_url
+          }\n\n❝ Dont forget to give a Star ⭐ to the repo. It's made with restless hardwork by *Team ATLAS*. ❞\n\n*©️ Team ATLAS- ${new Date().getFullYear()}*`;
         Atlas.sendMessage(m.from, { image: pic, caption: txt }, { quoted: m });
         break;
 
@@ -217,7 +216,7 @@ export default {
             if (stat.isDirectory()) {
               const subCommands = await readUniqueCommands(filePath);
               allCommands.push(...subCommands);
-            } else if (stat.isFile() && file.endsWith(".js")) {
+            } else if (stat.isFile() && (file.endsWith(".js") || file.endsWith(".ts"))) {
               try {
                 const command = await import(pathToFileURL(filePath).href);
                 const cmdDefault = command.default;
@@ -320,13 +319,37 @@ export default {
           `ᴘᴏᴡᴇʀᴇᴅ ʙʏ: © *ᴛᴇᴀᴍ ᴀᴛʟᴀꜱ*`,
         ].join("\n");
 
-        await Atlas.sendMessage(
-          m.from,
-          { video: { url: botVideo }, gifPlayback: true, caption: helpText },
-          { quoted: m },
-        );
+        await Atlas.sendMessage(m.from, { text: helpText }, { quoted: m });
 
         break;
+
+      case "reload": {
+        if (!isCreator && !isintegrated) {
+          await doReact("❌");
+          return Atlas.sendMessage(
+            m.from,
+            { text: `Only *Owners* can reload plugins !` },
+            { quoted: m }
+          );
+        }
+        await doReact("🔄");
+        try {
+          await readcommands();
+          await Atlas.sendMessage(
+            m.from,
+            { text: `✅ *Plugins reloaded successfully!*` },
+            { quoted: m }
+          );
+        } catch (err) {
+          console.error(err);
+          await Atlas.sendMessage(
+            m.from,
+            { text: `❌ *Failed to reload plugins:* ${err.message}` },
+            { quoted: m }
+          );
+        }
+        break;
+      }
 
       case "reboot":
       case "restart": {

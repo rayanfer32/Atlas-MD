@@ -320,6 +320,22 @@ const startAtlas = async () => {
 
   await readcommands();
 
+  // Auto hot-reload watcher for Plugins directory
+  let reloadTimeout;
+  fs.watch("./Plugins", (eventType, filename) => {
+    if (filename && (filename.endsWith(".js") || filename.endsWith(".ts"))) {
+      clearTimeout(reloadTimeout);
+      reloadTimeout = setTimeout(async () => {
+        try {
+          await readcommands();
+          console.log(chalk.green(`[ ATLAS ] Hot-reloaded modified plugin: ${filename}`));
+        } catch (err) {
+          console.error(chalk.redBright(`[ ATLAS ] Failed to hot-reload: ${err.message}`));
+        }
+      }, 500);
+    }
+  });
+
   Atlas.ev.on("creds.update", saveCreds);
   Atlas.serializeM = (m) => smsg(Atlas, m, store);
   Atlas.ev.on("connection.update", async (update) => {

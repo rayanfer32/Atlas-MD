@@ -1,4 +1,6 @@
 import fs from "fs";
+import path from "path";
+import { pathToFileURL } from "url";
 import Collections from "./Collections.js";
 const commands = new Collections();
 commands.prefix = global.prefa;
@@ -10,7 +12,9 @@ async function readcommands() {
     .filter((file) => file.endsWith(".js") || file.endsWith(".ts"));
   for (const file of cmdfile) {
     try {
-      const module = await import(`../Plugins/${file}`);
+      const filePath = path.resolve("./Plugins", file);
+      const fileUrl = pathToFileURL(filePath).href;
+      const module = await import(`${fileUrl}?update=${Date.now()}`);
       const cmdfiles = module.default;
       if (!cmdfiles || !cmdfiles.name) {
         console.warn(`[ ATLAS ] Skipping ${file}: missing default export or name`);
