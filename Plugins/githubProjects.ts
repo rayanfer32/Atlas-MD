@@ -24,6 +24,7 @@ interface Draft {
   messages: DraftMessage[];
   createdAt: number;
   draftStartedMsgKey?: any;
+  ghaddMsgKeys?: any[];
 }
 
 interface StatusOptionMap {
@@ -43,7 +44,8 @@ const draftService = {
       createdBy,
       createdByName,
       messages: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      ghaddMsgKeys: []
     };
     return currentDraft;
   },
@@ -150,7 +152,7 @@ async function uploadImageToRepo(octokit: Octokit, imagePath: string): Promise<s
     content: base64Content,
   });
 
-  return `https://raw.githubusercontent.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/main/${repoPath}`;
+  return `https://github.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/raw/master/${repoPath}`;
 }
 
 // 4. Issue formatting utilities
@@ -417,13 +419,14 @@ export default {
   start: async (
     Atlas: AtlasClient,
     m: WAMessage,
-    { inputCMD, text, args, prefix, doReact, quoted }: {
+    { inputCMD, text, args, prefix, doReact, quoted, isBotAdmin }: {
       inputCMD: string;
       text: string;
       args: string[];
       prefix: string;
       doReact: (emoji: string) => Promise<void>;
       quoted: QuotedMessage | null;
+      isBotAdmin: boolean;
     }
   ) => {
 
@@ -477,11 +480,25 @@ export default {
         const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
 
         const previousDraft = draftService.getDraft();
-        if (previousDraft && previousDraft.draftStartedMsgKey) {
-          try {
-            await Atlas.sendMessage(m.from, { delete: previousDraft.draftStartedMsgKey });
-          } catch (err) {
-            console.error("Failed to delete previous draft started message:", err);
+        if (previousDraft) {
+          if (previousDraft.draftStartedMsgKey) {
+            try {
+              await Atlas.sendMessage(m.from, { delete: previousDraft.draftStartedMsgKey });
+            } catch (err) {
+              console.error("Failed to delete previous draft started message:", err);
+            }
+          }
+          if (isBotAdmin && previousDraft.ghaddMsgKeys && previousDraft.ghaddMsgKeys.length > 0) {
+            for (const key of previousDraft.ghaddMsgKeys) {
+              try {
+                if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
+                (global as any).botDeletedMsgIds.add(key.id);
+                setTimeout(() => (global as any).botDeletedMsgIds?.delete(key.id), 300000);
+                await Atlas.sendMessage(m.from, { delete: key });
+              } catch (err) {
+                console.error("Failed to delete previous ghadd message:", err);
+              }
+            }
           }
         }
 
@@ -506,7 +523,8 @@ export default {
       }
 
       case "ghadd": {
-        if (!draftService.hasDraft()) {
+        const draft = draftService.getDraft();
+        if (!draft) {
           await doReact("❌");
           return m.reply(`❗ No active draft. Start one with:\n\`${prefix}ghcreate <category>: <title>\``);
         }
@@ -536,6 +554,8 @@ export default {
           };
           draftService.addMessage(collected);
           await doReact("✅");
+          if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
+          draft.ghaddMsgKeys.push(m.key);
         } else if (mtype === "imageMessage") {
           const caption = m.quoted.caption || undefined;
           await doReact("⏳");
@@ -558,6 +578,8 @@ export default {
             };
             draftService.addMessage(collected);
             await doReact("🖼️");
+            if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
+            draft.ghaddMsgKeys.push(m.key);
           } catch (err: any) {
             console.error("Failed to download image:", err);
             await doReact("❌");
@@ -596,7 +618,7 @@ export default {
             }
           }
 
-          // Delete "Draft Started" and "Creating GitHub issue..." messages
+          // Delete "Draft Started", "Creating GitHub issue..." and all /ghadd messages
           if (draft.draftStartedMsgKey) {
             try {
               await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
@@ -609,6 +631,18 @@ export default {
               await Atlas.sendMessage(m.from, { delete: creatingMsg.key });
             } catch (err) {
               console.error("Failed to delete creating message:", err);
+            }
+          }
+          if (isBotAdmin && draft.ghaddMsgKeys && draft.ghaddMsgKeys.length > 0) {
+            for (const key of draft.ghaddMsgKeys) {
+              try {
+                if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
+                (global as any).botDeletedMsgIds.add(key.id);
+                setTimeout(() => (global as any).botDeletedMsgIds?.delete(key.id), 300000);
+                await Atlas.sendMessage(m.from, { delete: key });
+              } catch (err) {
+                console.error("Failed to delete ghadd message:", err);
+              }
             }
           }
 
@@ -653,12 +687,24 @@ export default {
           }
         }
 
-        // Delete "Draft Started" message
+        // Delete "Draft Started" and all /ghadd messages on cancel
         if (draft.draftStartedMsgKey) {
           try {
             await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
           } catch (err) {
             console.error("Failed to delete draft started message on cancel:", err);
+          }
+        }
+        if (isBotAdmin && draft.ghaddMsgKeys && draft.ghaddMsgKeys.length > 0) {
+          for (const key of draft.ghaddMsgKeys) {
+            try {
+              if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
+              (global as any).botDeletedMsgIds.add(key.id);
+              setTimeout(() => (global as any).botDeletedMsgIds?.delete(key.id), 300000);
+              await Atlas.sendMessage(m.from, { delete: key });
+            } catch (err) {
+              console.error("Failed to delete ghadd message on cancel:", err);
+            }
           }
         }
 
