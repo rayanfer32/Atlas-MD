@@ -251,9 +251,11 @@ const startAtlas = async () => {
     // an idle connection. If the pong does not come back Baileys fires the
     // normal "connection.update" → "close" event, which restarts the bot.
     keepAliveIntervalMs: 25_000,
+    shouldSyncHistoryMessage: () => false
   });
 
   AtlasSocket = Atlas; // expose for pairing API
+  global.AtlasSocket = Atlas;
 
   store.bind(Atlas.ev);
 
@@ -457,7 +459,7 @@ const startAtlas = async () => {
             .filter((p) => p.admin === "admin" || p.admin === "superadmin")
             .map((p) => jidNormalizedUser(p.id));
           if (admins.includes(jidNormalizedUser(deleter))) continue;
-        } catch {}
+        } catch { }
 
         // Skip if the deleter is a mod
         const isDeleterMod = await checkMod(deleter);
@@ -592,19 +594,19 @@ const startAtlas = async () => {
         if (!(v.name || v.subject)) v = Atlas.groupMetadata(id) || {};
         resolve(
           v.name ||
-            v.subject ||
-            PhoneNumber("+" + id.replace("@s.whatsapp.net", "")).getNumber(
-              "international",
-            ),
+          v.subject ||
+          PhoneNumber("+" + id.replace("@s.whatsapp.net", "")).getNumber(
+            "international",
+          ),
         );
       });
     else
       v =
         id === "0@s.whatsapp.net"
           ? {
-              id,
-              name: "WhatsApp",
-            }
+            id,
+            name: "WhatsApp",
+          }
           : id === Atlas.decodeJid(Atlas.user.id)
             ? Atlas.user
             : store.contacts[id] || {};
@@ -656,15 +658,15 @@ const startAtlas = async () => {
           {},
           {
             logger: {
-              info: () => {},
-              debug: () => {},
-              warn: () => {},
-              error: () => {},
+              info: () => { },
+              debug: () => { },
+              warn: () => { },
+              error: () => { },
               child: () => ({
-                info: () => {},
-                debug: () => {},
-                warn: () => {},
-                error: () => {},
+                info: () => { },
+                debug: () => { },
+                warn: () => { },
+                error: () => { },
               }),
             },
             reuploadRequest: Atlas.updateMediaMessage,
@@ -704,15 +706,15 @@ const startAtlas = async () => {
           {},
           {
             logger: {
-              info: () => {},
-              debug: () => {},
-              warn: () => {},
-              error: () => {},
+              info: () => { },
+              debug: () => { },
+              warn: () => { },
+              error: () => { },
               child: () => ({
-                info: () => {},
-                debug: () => {},
-                warn: () => {},
-                error: () => {},
+                info: () => { },
+                debug: () => { },
+                warn: () => { },
+                error: () => { },
               }),
             },
             reuploadRequest: Atlas.updateMediaMessage,
@@ -787,7 +789,7 @@ const startAtlas = async () => {
 
   Atlas.setStatus = (status) => {
     // v7: query() removed — use updateProfileStatus instead (fire-and-forget)
-    Atlas.updateProfileStatus(status).catch(() => {});
+    Atlas.updateProfileStatus(status).catch(() => { });
     return status;
   };
 

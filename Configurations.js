@@ -26,7 +26,7 @@ global.pickKey = (keys) => {
 
 let gg = process.env.MODS;
 if (!gg) {
-  gg = "918101187835"; // You can replace this number with yours //
+  throw new Error("Please provide MODS in the environment variables");
 }
 
 global.owner = gg.split(",");

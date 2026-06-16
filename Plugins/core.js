@@ -22,12 +22,13 @@ let mergedCommands = [
   "restart",
   "reboot",
   "reload",
+  "getid",
 ];
 
 export default {
   name: "systemcommands",
   alias: [...mergedCommands],
-  uniquecommands: ["script", "support", "help", "alive", "restart"],
+  uniquecommands: ["script", "support", "help", "alive", "restart", "getid"],
   description: "All system commands",
   start: async (
     Atlas,
@@ -395,6 +396,11 @@ export default {
           }
         }, 2000);
         break;
+      }
+
+      case "getid": {
+        await doReact("🔍");
+        return m.reply(`*JID:* \`${m.from}\``);
       }
 
       default:
