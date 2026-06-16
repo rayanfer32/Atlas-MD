@@ -6,6 +6,7 @@ import type { WAMessage, AtlasClient } from "../types/index.js";
 const TARGET_GROUP_JID = process.env.KAMAVO_GROUP_JID // Replace with your actual group JID after running the command
 const KAMAVO_DASHBOARD_URL = process.env.KAMAVO_DASHBOARD_URL
 const KAMAVO_API_KEY = process.env.KAMAVO_API_KEY
+const CRON_TIME = process.env.KAMAVO_CRON_TIME;
 const DAILY_WORKER_TARGET = 30;
 
 interface DashboardData {
@@ -97,7 +98,10 @@ async function fetchAndFormatReport(): Promise<string> {
 }
 
 // Schedule the daily report at 11:30 PM (23:30) IST (Asia/Kolkata)
-cron.schedule("30 23 * * *", async () => {
+if (!CRON_TIME) {
+    throw new Error("KAMAVO_CRON_TIME is not defined");
+}
+cron.schedule(CRON_TIME, async () => {
     console.log("[CRON] Running scheduled Daily Wins report check...");
 
     // Get the globally exposed Atlas socket
