@@ -3,7 +3,10 @@ import axios from "axios";
 import type { WAMessage, AtlasClient } from "../types/index.js";
 
 // Set your target WhatsApp group JID here after finding it with the winsjid command.
-const TARGET_GROUP_JID = process.env.KAMAVO_WINS_GROUP // Replace with your actual group JID after running the command
+const TARGET_GROUP_JID = process.env.KAMAVO_GROUP_JID // Replace with your actual group JID after running the command
+const KAMAVO_DASHBOARD_URL = process.env.KAMAVO_DASHBOARD_URL
+const KAMAVO_API_KEY = process.env.KAMAVO_API_KEY
+const DAILY_WORKER_TARGET = 30;
 
 interface DashboardData {
     generatedAt: string;
@@ -20,12 +23,11 @@ interface DashboardData {
     };
 }
 
-const DAILY_WORKER_TARGET = 30;
-
-const KAMAVO_DASHBOARD_URL = process.env.KAMAVO_DASHBOARD_URL || "https://kamavo-app-backend-prod.onrender.com/api/internal/dashboard";
-const KAMAVO_API_KEY = process.env.KAMAVO_API_KEY || "SuperSecretInternalApiKeyForBots123!";
-
 async function fetchAndFormatReport(): Promise<string> {
+    if (!KAMAVO_DASHBOARD_URL || !KAMAVO_API_KEY || !TARGET_GROUP_JID) {
+        throw new Error("KAMAVO_DASHBOARD_URL or KAMAVO_API_KEY or KAMAVO_GROUP_JID is not defined");
+    }
+
     const response = await axios.get(KAMAVO_DASHBOARD_URL, {
         headers: {
             "X-API-Key": KAMAVO_API_KEY,
