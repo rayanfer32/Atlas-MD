@@ -97,35 +97,42 @@ async function fetchAndFormatReport(): Promise<string> {
     return message;
 }
 
-// Schedule the daily report at 11:30 PM (23:30) IST (Asia/Kolkata)
+// Schedule the daily report
 if (!CRON_TIME) {
-    throw new Error("KAMAVO_CRON_TIME is not defined");
+    console.warn("[CRON] KAMAVO_CRON_TIME is not defined in the environment variables. Scheduled daily reports are disabled, but manual commands remain active.");
+} else {
+    // Prevent duplicate cron schedules from starting on hot-reloads/re-imports
+    if ((global as any).kamavoDailyWinsCron) {
+        console.log("[CRON] Stopping and replacing existing Kamavo Daily Wins cron job...");
+        (global as any).kamavoDailyWinsCron.stop();
+    }
+
+    (global as any).kamavoDailyWinsCron = cron.schedule(CRON_TIME, async () => {
+        console.log("[CRON] Running scheduled Daily Wins report check...");
+
+        // Get the globally exposed Atlas socket
+        const Atlas = (global as any).AtlasSocket;
+        if (!Atlas) {
+            console.error("[CRON] Atlas socket is not available yet.");
+            return;
+        }
+
+        if (!TARGET_GROUP_JID) {
+            console.warn("[CRON] JID has not been configured in kamavo-daily-wins.ts yet. Skipping sending report.");
+            return;
+        }
+
+        try {
+            const reportText = await fetchAndFormatReport();
+            await Atlas.sendMessage(TARGET_GROUP_JID, { text: reportText });
+            console.log("[CRON] Daily Wins report sent successfully to JID:", TARGET_GROUP_JID);
+        } catch (error: any) {
+            console.error("[CRON] Failed to send scheduled daily wins report:", error.message || error);
+        }
+    }, {
+        timezone: "Asia/Kolkata"
+    });
 }
-cron.schedule(CRON_TIME, async () => {
-    console.log("[CRON] Running scheduled Daily Wins report check...");
-
-    // Get the globally exposed Atlas socket
-    const Atlas = (global as any).AtlasSocket;
-    if (!Atlas) {
-        console.error("[CRON] Atlas socket is not available yet.");
-        return;
-    }
-
-    if (!TARGET_GROUP_JID) {
-        console.warn("[CRON] JID has not been configured in kamavo-daily-wins.ts yet. Skipping sending report.");
-        return;
-    }
-
-    try {
-        const reportText = await fetchAndFormatReport();
-        await Atlas.sendMessage(TARGET_GROUP_JID, { text: reportText });
-        console.log("[CRON] Daily Wins report sent successfully to JID:", TARGET_GROUP_JID);
-    } catch (error: any) {
-        console.error("[CRON] Failed to send scheduled daily wins report:", error.message || error);
-    }
-}, {
-    timezone: "Asia/Kolkata"
-});
 
 export default {
     name: "kamavodailywins",
