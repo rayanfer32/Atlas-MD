@@ -22,8 +22,11 @@ import { serialize, WAConnection } from "./System/whatsapp.js";
 import { smsg, getBuffer, getSizeMedia } from "./System/Function2.js";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
+import cron from "node-cron";
+import { parseTime, getSleepConfig, checkIfSleepTime } from "./utils/helper.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
 
 fs.writeFileSync(path.join(__dirname, "atlas.pid"), process.pid.toString());
 
@@ -183,10 +186,37 @@ let status = "initializing";
 let AtlasSocket = null; // module-level reference for pairing API
 let mongoAuth; // module-level so the GC/sync interval can access it
 
+global.isSleeping = false;
+global.justWokeUp = false;
+
+
 const startAtlas = async () => {
+  if (checkIfSleepTime()) {
+    global.isSleeping = true;
+    status = "sleeping";
+    const { sleepTime, wakeTime } = getSleepConfig();
+    const pad = (num) => String(num).padStart(2, "0");
+    const sleepStr = `${pad(sleepTime.hour)}:${pad(sleepTime.minute)}`;
+    const wakeStr = `${pad(wakeTime.hour)}:${pad(wakeTime.minute)}`;
+    console.log(chalk.yellow(`[ ATLAS ] Bot is in sleep hours (${sleepStr} - ${wakeStr}). Suppressing WhatsApp socket connection. Process remains alive.`));
+    try {
+      if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(mongodb);
+        console.log(chalk.green(`[ ATLAS ] MongoDB connected (during sleep startup) ✓`));
+      }
+    } catch (err) {
+      console.error(
+        chalk.redBright(`[ EXCEPTION ] MongoDB error during sleep startup: ${err.message}`),
+      );
+    }
+    return;
+  }
+
   try {
-    await mongoose.connect(mongodb);
-    console.log(chalk.green(`[ ATLAS ] MongoDB connected ✓`));
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(mongodb);
+      console.log(chalk.green(`[ ATLAS ] MongoDB connected ✓`));
+    }
   } catch (err) {
     console.error(
       chalk.redBright(`[ EXCEPTION ] MongoDB error: ${err.message}`),
@@ -250,7 +280,7 @@ const startAtlas = async () => {
     // Send a WebSocket ping every 25 s so the server never silently drops
     // an idle connection. If the pong does not come back Baileys fires the
     // normal "connection.update" → "close" event, which restarts the bot.
-    keepAliveIntervalMs: 25_000,
+    keepAliveIntervalMs: 20_000,
     shouldSyncHistoryMessage: () => false
   });
 
@@ -343,11 +373,32 @@ const startAtlas = async () => {
   Atlas.ev.on("connection.update", async (update) => {
     const { lastDisconnect, connection, qr } = update;
     if (connection) {
-      status = connection;
-      console.info(`[ ATLAS ] Server Status => ${connection}`);
+      status = global.isSleeping ? "sleeping" : connection;
+      console.info(`[ ATLAS ] Server Status => ${status}`);
+    }
+
+    if (connection === "open") {
+      if (global.justWokeUp) {
+        global.justWokeUp = false;
+        const owners = global.owner || [];
+        for (const owner of owners) {
+          const cleanOwner = owner.replace(/[^0-9]/g, "");
+          if (cleanOwner) {
+            const jid = `${cleanOwner}@s.whatsapp.net`;
+            console.log(chalk.green(`[ ATLAS ] Notifying ${owner} ${jid} that bot has woken up...`));
+            setTimeout(async () => {
+              await Atlas.sendMessage(jid, { text: "🌅 *Atlas Bot has woken up and is now online!*" }).catch(() => { });
+            }, 10_000);
+          }
+        }
+      }
     }
 
     if (connection === "close") {
+      if (global.isSleeping) {
+        console.log("[ ATLAS ] WhatsApp connection closed for scheduled sleep. Reconnection suppressed.\n");
+        return;
+      }
       let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
       if (reason === DisconnectReason.badSession) {
         console.log(
@@ -379,6 +430,7 @@ const startAtlas = async () => {
         console.log("[ ATLAS ] Connection Timed Out, Trying to Reconnect...\n");
         startAtlas();
       } else {
+        console.log("ReasonCode:", reason);
         console.log(
           `[ ATLAS ] Server Disconnected: "It's either safe disconnect or WhatsApp Account got banned !\n"`,
         );
@@ -836,6 +888,54 @@ const startAtlas = async () => {
     return fs.promises.unlink(pathFile);
   };
 };
+const { sleepTime, wakeTime } = getSleepConfig();
+const pad = (num) => String(num).padStart(2, "0");
+const sleepCronPattern = `${sleepTime.minute} ${sleepTime.hour} * * *`;
+const wakeCronPattern = `${wakeTime.minute} ${wakeTime.hour} * * *`;
+
+// Schedule bot sleep in the configured timezone
+cron.schedule(sleepCronPattern, async () => {
+  const { sleepTime: currentSleep, wakeTime: currentWake } = getSleepConfig();
+  const sleepStr = `${pad(currentSleep.hour)}:${pad(currentSleep.minute)}`;
+  const wakeStr = `${pad(currentWake.hour)}:${pad(currentWake.minute)}`;
+  console.log(chalk.yellow(`[ ATLAS ] Sleep time (${sleepStr}) reached. Disconnecting...`));
+  global.isSleeping = true;
+  status = "sleeping";
+
+  if (AtlasSocket) {
+    const owners = global.owner || [];
+    for (const owner of owners) {
+      const cleanOwner = owner.replace(/[^0-9]/g, "");
+      if (cleanOwner) {
+        const jid = `${cleanOwner}@s.whatsapp.net`;
+        await AtlasSocket.sendMessage(jid, { text: `💤 *Atlas Bot is going to sleep (disconnecting from WhatsApp until ${wakeStr})...*` }).catch(() => { });
+      }
+    }
+    // Wait 3 seconds for messages to send
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      await AtlasSocket.end(undefined);
+    } catch (e) {
+      console.error(chalk.red(`[ ATLAS ] Error ending socket: ${e.message}`));
+    }
+  }
+}, {
+  timezone: process.env.TIMEZONE || "Asia/Kolkata"
+});
+
+// Schedule bot wake up in the configured timezone
+cron.schedule(wakeCronPattern, async () => {
+  const { wakeTime: currentWake } = getSleepConfig();
+  const wakeStr = `${pad(currentWake.hour)}:${pad(currentWake.minute)}`;
+  console.log(chalk.green(`[ ATLAS ] Wake up time (${wakeStr}) reached. Reconnecting...`));
+  global.isSleeping = false;
+  global.justWokeUp = true;
+  status = "initializing";
+
+  await startAtlas();
+}, {
+  timezone: process.env.TIMEZONE || "Asia/Kolkata"
+});
 
 startAtlas();
 
@@ -960,6 +1060,43 @@ app.post("/api/pair", async (req, res) => {
     return res
       .status(500)
       .json({ error: "Failed to generate pairing code: " + err.message });
+  }
+});
+
+app.post("/api/webhook", async (req, res) => {
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    return res.status(500).json({ error: "WEBHOOK_SECRET is not configured on the server." });
+  }
+
+  const authHeader = req.headers["authorization"];
+  const customHeader = req.headers["x-webhook-secret"];
+  const receivedSecret = authHeader ? authHeader.replace(/^Bearer\s+/i, "") : customHeader;
+
+  if (!receivedSecret || receivedSecret !== webhookSecret) {
+    return res.status(401).json({ error: "Unauthorized: Invalid or missing secret." });
+  }
+
+  const { text } = req.body;
+  if (!text) {
+    return res.status(400).json({ error: "Missing required field: 'text'." });
+  }
+
+  const targetJid = process.env.KAMAVO_LIVE_METRICS_GROUP_JID;
+  if (!targetJid) {
+    return res.status(500).json({ error: "KAMAVO_LIVE_METRICS_GROUP_JID is not configured on the server." });
+  }
+
+  if (!AtlasSocket) {
+    return res.status(503).json({ error: "WhatsApp bot connection is not ready." });
+  }
+
+  try {
+    await AtlasSocket.sendMessage(targetJid, { text });
+    return res.json({ success: true, message: "Message sent successfully to " + targetJid });
+  } catch (err) {
+    console.error("[WEBHOOK ERROR]", err);
+    return res.status(500).json({ error: "Failed to send message: " + err.message });
   }
 });
 

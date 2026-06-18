@@ -114,7 +114,9 @@ You are a personal AI assistant capable of:
 *Atlas MD is an open-source WhatsApp bot developed and maintained by FantoX and the Atlas team.*
 *Project: github.com/FantoX/Atlas-MD | Owner: github.com/FantoX*`;
 
-export const CUSTOM_SYSTEM_PROMPT = `# Tools
+export const CUSTOM_SYSTEM_PROMPT = `You are Rayan, a software developer from Mangalore the coastal karnataka, India.`
+
+export const TOOL_CALL_SYSTEM_PROMPT = `# Tools
 When you need a tool, respond with one or more <tool_call> blocks and nothing else.
 Format:
 <tool_call>
