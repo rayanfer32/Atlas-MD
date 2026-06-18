@@ -36,8 +36,8 @@ export default async (Atlas, m, commands, chatUpdate) => {
       type === "conversation" && body?.startsWith(prefix)
         ? body
         : (type === "imageMessage" || type === "videoMessage") &&
-            body &&
-            body?.startsWith(prefix)
+          body &&
+          body?.startsWith(prefix)
           ? body
           : type === "extendedTextMessage" && body?.startsWith(prefix)
             ? body
@@ -46,7 +46,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
               : type === "listResponseMessage" && body?.startsWith(prefix)
                 ? body
                 : type === "templateButtonReplyMessage" &&
-                    body?.startsWith(prefix)
+                  body?.startsWith(prefix)
                   ? body
                   : "";
 
@@ -65,17 +65,17 @@ export default async (Atlas, m, commands, chatUpdate) => {
     const botLid = Atlas.user?.lid ? sanitize(Atlas.user.lid) : botIdClean;
     const groupAdmins = m.isGroup
       ? participants
-          .filter((p) => p.admin === "admin" || p.admin === "superadmin")
-          .map((p) => p.id)
+        .filter((p) => p.admin === "admin" || p.admin === "superadmin")
+        .map((p) => p.id)
       : [];
     const isBotAdmin = m.isGroup
       ? groupAdmins.includes(botIdClean) ||
-        groupAdmins.includes(botLid) ||
-        groupAdmins.some((admin) => sanitize(admin) === botIdClean)
+      groupAdmins.includes(botLid) ||
+      groupAdmins.some((admin) => sanitize(admin) === botIdClean)
       : false;
     const isAdmin = m.isGroup
       ? groupAdmins.includes(m.sender) ||
-        groupAdmins.includes(sanitize(m.sender))
+      groupAdmins.includes(sanitize(m.sender))
       : false;
     // Baileys v7 LID resolution: m.sender is a LID (@lid).
     // The phone JID is available from:
@@ -164,7 +164,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
       );
     const mentionByTag =
       type == "extendedTextMessage" &&
-      m.message.extendedTextMessage.contextInfo != null
+        m.message.extendedTextMessage.contextInfo != null
         ? m.message.extendedTextMessage.contextInfo.mentionedJid
         : [];
 
@@ -269,7 +269,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
         try {
           const linkgce = await Atlas.groupInviteCode(from);
           isOwnLink = detectedUrls.every((u) => u.includes(`chat.whatsapp.com/${linkgce}`));
-        } catch {}
+        } catch { }
 
         if (!isOwnLink) {
           // Track this deletion so anti-delete ignores it
@@ -405,7 +405,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
     };
     const uptime = () => formatTime(process.uptime());
 
-    let upTxt = `〘  ${botName} Personal Edition  〙    ⚡ Uptime: ${uptime()}`;
+    let upTxt = `working`;
     Atlas.setStatus(upTxt);
 
     cmd.start(Atlas, m, {
