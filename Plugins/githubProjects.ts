@@ -34,11 +34,19 @@ interface StatusOptionMap {
   done: string;
 }
 
-let currentDraft: Draft | null = null;
+interface GitHubGroupConfig {
+  owner: string;
+  repo: string;
+  projectId: string;
+  statusFieldId: string;
+  token?: string;
+}
+
+const draftsByGroup = new Map<string, Draft>();
 
 const draftService = {
-  startDraft(title: string, category: string, createdBy: string, createdByName: string): Draft {
-    currentDraft = {
+  startDraft(groupJid: string, title: string, category: string, createdBy: string, createdByName: string): Draft {
+    const draft: Draft = {
       title,
       category,
       createdBy,
@@ -47,32 +55,36 @@ const draftService = {
       createdAt: Date.now(),
       ghaddMsgKeys: []
     };
-    return currentDraft;
+    draftsByGroup.set(groupJid, draft);
+    return draft;
   },
-  getDraft(): Draft | null {
-    return currentDraft;
+  getDraft(groupJid: string): Draft | null {
+    return draftsByGroup.get(groupJid) ?? null;
   },
-  addMessage(message: DraftMessage): void {
-    if (!currentDraft) {
+  addMessage(groupJid: string, message: DraftMessage): void {
+    const draft = draftsByGroup.get(groupJid);
+    if (!draft) {
       throw new Error("No active draft");
     }
-    currentDraft.messages.push(message);
+    draft.messages.push(message);
   },
-  clearDraft(): void {
-    currentDraft = null;
+  clearDraft(groupJid: string): void {
+    draftsByGroup.delete(groupJid);
   },
-  hasDraft(): boolean {
-    return currentDraft !== null;
+  hasDraft(groupJid: string): boolean {
+    return draftsByGroup.has(groupJid);
   }
 };
 
-// 2. Status option caching
-let statusOptionMap: StatusOptionMap | null = null;
+// 2. Status option caching per projectId
+const statusOptionMapCache = new Map<string, StatusOptionMap>();
 
-async function fetchStatusOptions(graphqlClient: any): Promise<StatusOptionMap> {
-  if (statusOptionMap) return statusOptionMap;
+async function fetchStatusOptions(graphqlClient: any, projectId: string, statusFieldId: string): Promise<StatusOptionMap> {
+  if (statusOptionMapCache.has(projectId)) {
+    return statusOptionMapCache.get(projectId)!;
+  }
 
-  console.log("[GITHUB] Fetching GitHub Project status options...");
+  console.log(`[GITHUB] Fetching GitHub Project status options for project ${projectId}...`);
 
   const query = `
     query GetProjectFields($projectId: ID!) {
@@ -96,17 +108,17 @@ async function fetchStatusOptions(graphqlClient: any): Promise<StatusOptionMap> 
   `;
 
   const result: any = await graphqlClient(query, {
-    projectId: process.env.GITHUB_PROJECT_ID,
+    projectId,
   });
 
   const fields: any[] = result.node?.fields?.nodes ?? [];
   const statusField = fields.find(
-    (f: any) => f?.id === process.env.GITHUB_STATUS_FIELD_ID
+    (f: any) => f?.id === statusFieldId
   );
 
   if (!statusField) {
     throw new Error(
-      `Status field with ID "${process.env.GITHUB_STATUS_FIELD_ID}" not found in project fields.`
+      `Status field with ID "${statusFieldId}" not found in project fields.`
     );
   }
 
@@ -124,35 +136,36 @@ async function fetchStatusOptions(graphqlClient: any): Promise<StatusOptionMap> 
     return first;
   };
 
-  statusOptionMap = {
+  const map: StatusOptionMap = {
     todo: resolveStatusId(options, ['todo', 'to do', 'backlog']),
     'in-progress': resolveStatusId(options, ['in-progress', 'in progress', 'doing']),
     testing: resolveStatusId(options, ['testing', 'in testing', 'qa', 'review']),
     done: resolveStatusId(options, ['done', 'complete', 'completed', 'closed']),
   };
 
-  console.log("[GITHUB] Status options loaded:", statusOptionMap);
-  return statusOptionMap;
+  statusOptionMapCache.set(projectId, map);
+  console.log(`[GITHUB] Status options loaded for ${projectId}:`, map);
+  return map;
 }
 
 // 3. Image uploading to Github repo
-async function uploadImageToRepo(octokit: Octokit, imagePath: string): Promise<string> {
+async function uploadImageToRepo(octokit: Octokit, imagePath: string, owner: string, repo: string): Promise<string> {
   const filename = path.basename(imagePath);
   const content = fs.readFileSync(imagePath);
   const base64Content = content.toString("base64");
   const repoPath = `qa-attachments/${Date.now()}-${filename}`;
 
-  console.log(`[GITHUB] Uploading image to repo: ${repoPath}`);
+  console.log(`[GITHUB] Uploading image to ${owner}/${repo}: ${repoPath}`);
 
-  await octokit.repos.createOrUpdateFileContents({
-    owner: process.env.GITHUB_OWNER ?? "",
-    repo: process.env.GITHUB_REPO ?? "",
+  const res = await octokit.repos.createOrUpdateFileContents({
+    owner,
+    repo,
     path: repoPath,
     message: `Add QA attachment: ${filename}`,
     content: base64Content,
   });
 
-  return `https://github.com/${process.env.GITHUB_OWNER}/${process.env.GITHUB_REPO}/raw/master/${repoPath}`;
+  return (res.data.content as any)?.download_url || `https://github.com/${owner}/${repo}/raw/master/${repoPath}`;
 }
 
 // 4. Issue formatting utilities
@@ -239,12 +252,17 @@ function buildIssueBody(draft: Draft): string {
 }
 
 // 5. Project helpers
-async function createIssue(octokit: Octokit, graphqlClient: any, draft: Draft): Promise<{ number: number; url: string; nodeId: string }> {
+async function createIssue(
+  octokit: Octokit,
+  draft: Draft,
+  owner: string,
+  repo: string
+): Promise<{ number: number; url: string; nodeId: string }> {
   const messagesWithUrls = [...draft.messages];
   for (const msg of messagesWithUrls) {
     if (msg.type === 'image' && msg.imagePath) {
       try {
-        const url = await uploadImageToRepo(octokit, msg.imagePath);
+        const url = await uploadImageToRepo(octokit, msg.imagePath, owner, repo);
         msg.imagePath = url;
         try {
           if (fs.existsSync(msg.imagePath)) {
@@ -261,11 +279,11 @@ async function createIssue(octokit: Octokit, graphqlClient: any, draft: Draft): 
   const body = buildIssueBody({ ...draft, messages: messagesWithUrls });
   const labels = [draft.category];
 
-  console.log(`[GITHUB] Creating issue: [${draft.category}] ${draft.title}`);
+  console.log(`[GITHUB] Creating issue in ${owner}/${repo}: [${draft.category}] ${draft.title}`);
 
   const response = await octokit.issues.create({
-    owner: process.env.GITHUB_OWNER ?? "",
-    repo: process.env.GITHUB_REPO ?? "",
+    owner,
+    repo,
     title: `[${draft.category.toUpperCase()}] ${draft.title}`,
     body,
     labels,
@@ -278,7 +296,7 @@ async function createIssue(octokit: Octokit, graphqlClient: any, draft: Draft): 
   };
 }
 
-async function addIssueToProject(graphqlClient: any, issueNodeId: string): Promise<{ itemId: string }> {
+async function addIssueToProject(graphqlClient: any, projectId: string, issueNodeId: string): Promise<{ itemId: string }> {
   const mutation = `
     mutation AddItemToProject($projectId: ID!, $contentId: ID!) {
       addProjectV2ItemById(input: {
@@ -293,7 +311,7 @@ async function addIssueToProject(graphqlClient: any, issueNodeId: string): Promi
   `;
 
   const result: any = await graphqlClient(mutation, {
-    projectId: process.env.GITHUB_PROJECT_ID,
+    projectId,
     contentId: issueNodeId,
   });
 
@@ -303,8 +321,14 @@ async function addIssueToProject(graphqlClient: any, issueNodeId: string): Promi
   return { itemId };
 }
 
-async function setProjectItemStatus(graphqlClient: any, itemId: string, status: keyof StatusOptionMap): Promise<void> {
-  const statusOptions = await fetchStatusOptions(graphqlClient);
+async function setProjectItemStatus(
+  graphqlClient: any,
+  projectId: string,
+  statusFieldId: string,
+  itemId: string,
+  status: keyof StatusOptionMap
+): Promise<void> {
+  const statusOptions = await fetchStatusOptions(graphqlClient, projectId, statusFieldId);
   const optionId = statusOptions[status];
 
   if (!optionId) {
@@ -332,14 +356,18 @@ async function setProjectItemStatus(graphqlClient: any, itemId: string, status: 
   `;
 
   await graphqlClient(mutation, {
-    projectId: process.env.GITHUB_PROJECT_ID,
+    projectId,
     itemId,
-    fieldId: process.env.GITHUB_STATUS_FIELD_ID,
+    fieldId: statusFieldId,
     optionId,
   });
 }
 
-async function findProjectItemByIssueNumber(graphqlClient: any, issueNumber: number): Promise<string | null> {
+async function findProjectItemByIssueNumber(
+  graphqlClient: any,
+  projectId: string,
+  issueNumber: number
+): Promise<string | null> {
   const query = `
     query FindProjectItem($projectId: ID!, $after: String) {
       node(id: $projectId) {
@@ -368,7 +396,7 @@ async function findProjectItemByIssueNumber(graphqlClient: any, issueNumber: num
 
   while (hasNextPage) {
     const result: any = await graphqlClient(query, {
-      projectId: process.env.GITHUB_PROJECT_ID,
+      projectId,
       after,
     });
 
@@ -396,9 +424,53 @@ function extractIssueNumber(text: string): number | null {
   return null;
 }
 
+function getGroupConfig(groupJid: string): GitHubGroupConfig | null {
+  if (process.env.GITHUB_PROJECTS_MAPPING) {
+    try {
+      const mapping: Record<string, GitHubGroupConfig> = JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
+      if (mapping[groupJid]) {
+        return mapping[groupJid];
+      }
+    } catch (err) {
+      console.error("[GITHUB] Error parsing GITHUB_PROJECTS_MAPPING:", err);
+    }
+    return null;
+  }
+
+  // Fallback to legacy single project env vars if mapping is not configured
+  if (
+    process.env.GITHUB_OWNER &&
+    process.env.GITHUB_REPO &&
+    process.env.GITHUB_PROJECT_ID &&
+    process.env.GITHUB_STATUS_FIELD_ID
+  ) {
+    return {
+      owner: process.env.GITHUB_OWNER,
+      repo: process.env.GITHUB_REPO,
+      projectId: process.env.GITHUB_PROJECT_ID,
+      statusFieldId: process.env.GITHUB_STATUS_FIELD_ID,
+      token: process.env.GITHUB_TOKEN,
+    };
+  }
+
+  return null;
+}
+
 function checkConfig(): void {
+  if (!process.env.GITHUB_TOKEN) {
+    throw new Error("Missing required GitHub environment variable: GITHUB_TOKEN");
+  }
+
+  if (process.env.GITHUB_PROJECTS_MAPPING) {
+    try {
+      JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
+    } catch (err: any) {
+      throw new Error(`Invalid JSON in GITHUB_PROJECTS_MAPPING: ${err.message}`);
+    }
+    return;
+  }
+
   const required = [
-    'GITHUB_TOKEN',
     'GITHUB_OWNER',
     'GITHUB_REPO',
     'GITHUB_PROJECT_ID',
@@ -406,7 +478,7 @@ function checkConfig(): void {
   ];
   const missing = required.filter(k => !process.env[k]);
   if (missing.length > 0) {
-    throw new Error(`Missing required GitHub environment variable(s): ${missing.join(', ')}`);
+    throw new Error(`Missing required GitHub environment variable(s): ${missing.join(', ')} (or configure GITHUB_PROJECTS_MAPPING)`);
   }
 }
 
@@ -446,11 +518,19 @@ export default {
       return m.reply(`❌ Configuration Error:\n\n${e.message}\n\nPlease add the missing environment variables to your .env file.`);
     }
 
+    const groupJid = m.from;
+    const groupConfig = getGroupConfig(groupJid);
+    if (!groupConfig || !groupConfig.owner || !groupConfig.repo || !groupConfig.projectId || !groupConfig.statusFieldId) {
+      await doReact("❌");
+      return m.reply("❗ This WhatsApp group is not configured for GitHub projects.");
+    }
+
     // Initialize Octokit and GraphQL Clients
-    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const token = groupConfig.token || process.env.GITHUB_TOKEN;
+    const octokit = new Octokit({ auth: token });
     const graphqlClient = graphql.defaults({
       headers: {
-        authorization: `token ${process.env.GITHUB_TOKEN}`,
+        authorization: `token ${token}`,
       },
     });
 
@@ -479,7 +559,7 @@ export default {
         const senderId = m.sender || 'unknown';
         const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
 
-        const previousDraft = draftService.getDraft();
+        const previousDraft = draftService.getDraft(groupJid);
         if (previousDraft) {
           if (previousDraft.draftStartedMsgKey) {
             try {
@@ -502,8 +582,8 @@ export default {
           }
         }
 
-        const hadPrevious = draftService.hasDraft();
-        const draft = draftService.startDraft(title, category, senderId, senderName);
+        const hadPrevious = draftService.hasDraft(groupJid);
+        const draft = draftService.startDraft(groupJid, title, category, senderId, senderName);
 
         const warning = hadPrevious ? '\n\n_Previous draft was cancelled._' : '';
 
@@ -523,7 +603,7 @@ export default {
       }
 
       case "ghadd": {
-        const draft = draftService.getDraft();
+        const draft = draftService.getDraft(groupJid);
         if (!draft) {
           await doReact("❌");
           return m.reply(`❗ No active draft. Start one with:\n\`${prefix}ghcreate <category>: <title>\``);
@@ -540,7 +620,7 @@ export default {
         const messageId = m.quoted?.id || `msg-${Date.now()}`;
         const timestamp = Date.now();
 
-        console.log("quoted : ", m.quoted)
+        console.log("quoted : ", m.quoted);
         const mtype = m.quoted?.type;
 
         if (mtype === "conversation" || mtype === "extendedTextMessage") {
@@ -552,7 +632,7 @@ export default {
             text: m.quoted.text || '',
             timestamp
           };
-          draftService.addMessage(collected);
+          draftService.addMessage(groupJid, collected);
           await doReact("✅");
           if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
           draft.ghaddMsgKeys.push(m.key);
@@ -576,7 +656,7 @@ export default {
               imagePath,
               timestamp
             };
-            draftService.addMessage(collected);
+            draftService.addMessage(groupJid, collected);
             await doReact("🖼️");
             if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
             draft.ghaddMsgKeys.push(m.key);
@@ -593,7 +673,7 @@ export default {
       }
 
       case "ghdone": {
-        const draft = draftService.getDraft();
+        const draft = draftService.getDraft(groupJid);
         if (!draft) {
           await doReact("❌");
           return m.reply(`❗ No active draft. Start one with:\n\`${prefix}ghcreate <category>: <title>\``);
@@ -603,9 +683,9 @@ export default {
         const creatingMsg = await m.reply("⏳ Creating GitHub issue...");
 
         try {
-          const issue = await createIssue(octokit, graphqlClient, draft);
-          const projectItem = await addIssueToProject(graphqlClient, issue.nodeId);
-          await setProjectItemStatus(graphqlClient, projectItem.itemId, 'todo');
+          const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo);
+          const projectItem = await addIssueToProject(graphqlClient, groupConfig.projectId, issue.nodeId);
+          await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
 
           // Clean up local temp images
           for (const msg of draft.messages) {
@@ -646,7 +726,7 @@ export default {
             }
           }
 
-          draftService.clearDraft();
+          draftService.clearDraft(groupJid);
 
           await doReact("✅");
           await m.reply(
@@ -671,7 +751,7 @@ export default {
       }
 
       case "ghcancel": {
-        const draft = draftService.getDraft();
+        const draft = draftService.getDraft(groupJid);
         if (!draft) {
           await doReact("❌");
           return m.reply("❗ No active draft to cancel.");
@@ -708,7 +788,7 @@ export default {
           }
         }
 
-        draftService.clearDraft();
+        draftService.clearDraft(groupJid);
         await doReact("❌");
         await m.reply("❌ *Draft Cancelled*");
         break;
@@ -739,14 +819,14 @@ export default {
         await doReact("⏳");
 
         try {
-          const itemId = await findProjectItemByIssueNumber(graphqlClient, issueNumber);
+          const itemId = await findProjectItemByIssueNumber(graphqlClient, groupConfig.projectId, issueNumber);
 
           if (!itemId) {
             await doReact("❌");
             return m.reply(`❗ GH-${issueNumber} was not found in the GitHub Project board.`);
           }
 
-          await setProjectItemStatus(graphqlClient, itemId, status as keyof StatusOptionMap);
+          await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, itemId, status as keyof StatusOptionMap);
 
           const statusNames = {
             todo: 'Todo',
