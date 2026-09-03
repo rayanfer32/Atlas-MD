@@ -116,6 +116,7 @@ import chalk from "chalk";
 app.use(express.json());
 
 global.lidToJidMap = new Map();
+global.recentGroupMessages = new Map();
 
 const store = {
   contacts: {},
@@ -174,11 +175,87 @@ const store = {
         const jid = msg.key.remoteJid;
         if (!store.messages[jid]) store.messages[jid] = {};
         store.messages[jid][msg.key.id] = msg;
+
+        // Track in recentGroupMessages if it's a group
+        if (jid.endsWith("@g.us")) {
+          // Handle reaction message delivered via messages.upsert
+          const reactionMsg = msg.message?.reactionMessage;
+          if (reactionMsg) {
+            const targetId = reactionMsg.key?.id;
+            const reactor = msg.key?.participant || msg.participant || msg.key?.remoteJid;
+            const emoji = reactionMsg.text;
+            if (targetId && reactor) {
+              const list = global.recentGroupMessages.get(jid);
+              if (list) {
+                const target = list.find((m) => m.id === targetId);
+                if (target) {
+                  if (!target.reactions) target.reactions = new Map();
+                  if (emoji) {
+                    target.reactions.set(reactor, emoji);
+                  } else {
+                    target.reactions.delete(reactor);
+                  }
+                }
+              }
+            }
+            continue;
+          }
+
+          if (msg.message?.protocolMessage || msg.message?.senderKeyDistributionMessage) {
+            continue;
+          }
+
+          if (!global.recentGroupMessages.has(jid)) {
+            global.recentGroupMessages.set(jid, []);
+          }
+          const list = global.recentGroupMessages.get(jid);
+          const existingIdx = list.findIndex((m) => m.id === msg.key.id);
+          const entry = {
+            id: msg.key.id,
+            key: msg.key,
+            msg: msg,
+            pushName: msg.pushName,
+            sender: msg.key.participant || msg.participant || jid,
+            timestamp: Number(msg.messageTimestamp || Date.now() / 1000) * 1000,
+            reactions: new Map(),
+          };
+          if (existingIdx !== -1) {
+            entry.reactions = list[existingIdx].reactions || new Map();
+            list[existingIdx] = entry;
+          } else {
+            list.push(entry);
+            if (list.length > 100) list.shift();
+          }
+        }
+      }
+    });
+
+    ev.on("messages.reaction", (reactions) => {
+      for (const item of reactions) {
+        const jid = item.key?.remoteJid;
+        const targetId = item.key?.id;
+        if (!jid || !targetId || !jid.endsWith("@g.us")) continue;
+        const list = global.recentGroupMessages?.get(jid);
+        if (!list) continue;
+        const target = list.find((m) => m.id === targetId);
+        if (!target) continue;
+        if (!target.reactions) target.reactions = new Map();
+
+        const reactor = item.reaction?.key?.participant || item.reaction?.key?.remoteJid;
+        const emoji = item.reaction?.text;
+        if (reactor) {
+          if (emoji) {
+            target.reactions.set(reactor, emoji);
+          } else {
+            target.reactions.delete(reactor);
+          }
+        }
       }
     });
   },
   loadMessage: async (jid, id) => store.messages[jid]?.[id],
 };
+global.store = store;
 
 // Atlas Server configuration
 let QR_GENERATE = "invalid";

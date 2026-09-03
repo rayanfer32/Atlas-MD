@@ -424,6 +424,133 @@ function extractIssueNumber(text: string): number | null {
   return null;
 }
 
+function matchUser(userA: string, userB: string): boolean {
+  if (!userA || !userB) return false;
+  if (userA === userB) return true;
+
+  const cleanA = userA.split('@')[0];
+  const cleanB = userB.split('@')[0];
+  if (cleanA === cleanB) return true;
+
+  const lidMap = (global as any).lidToJidMap as Map<string, string> | undefined;
+  if (lidMap) {
+    if (lidMap.get(userA) === userB || lidMap.get(userB) === userA) return true;
+    const mappedA = lidMap.get(userA);
+    if (mappedA && mappedA.split('@')[0] === cleanB) return true;
+    const mappedB = lidMap.get(userB);
+    if (mappedB && mappedB.split('@')[0] === cleanA) return true;
+  }
+
+  return false;
+}
+
+async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<DraftMessage | null> {
+  const msg = candidate.msg;
+  if (!msg || !msg.message) return null;
+
+  try {
+    const s = await (Atlas as any).serializeM(msg);
+    const senderId = s.sender || candidate.sender || 'unknown';
+    const senderName = s.pushName || candidate.pushName || senderId.split('@')[0] || 'Unknown';
+    const senderNumber = senderId.split('@')[0] || senderId;
+    const timestamp = candidate.timestamp || Date.now();
+    const messageId = s.id || candidate.id;
+
+    if (s.type === 'conversation' || s.type === 'extendedTextMessage') {
+      return {
+        messageId,
+        senderName,
+        senderNumber,
+        type: 'text',
+        text: s.text || '',
+        timestamp
+      };
+    }
+
+    if (s.type === 'imageMessage') {
+      const caption = s.text || undefined;
+      let imagePath: string | undefined;
+      try {
+        const buffer = await s.download();
+        if (buffer && Buffer.isBuffer(buffer)) {
+          const tempDir = os.tmpdir();
+          const filename = `qa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
+          imagePath = path.join(tempDir, filename);
+          fs.writeFileSync(imagePath, buffer);
+        }
+      } catch (err) {
+        console.error("[GITHUB] Failed to download image from message:", err);
+      }
+
+      return {
+        messageId,
+        senderName,
+        senderNumber,
+        type: 'image',
+        text: caption,
+        imagePath,
+        timestamp
+      };
+    }
+
+    if (s.text) {
+      return {
+        messageId,
+        senderName,
+        senderNumber,
+        type: 'text',
+        text: s.text,
+        timestamp
+      };
+    }
+  } catch (err) {
+    console.error("[GITHUB] Error extracting message data:", err);
+  }
+
+  return null;
+}
+
+async function inferTitle(messages: DraftMessage[]): Promise<string> {
+  const textParts = messages
+    .map((m, idx) => {
+      const content = m.text ? m.text : (m.type === 'image' ? '[Image Attachment]' : '');
+      return `Message ${idx + 1} (${m.senderName}): ${content}`;
+    })
+    .filter(Boolean)
+    .join("\n");
+
+  const geminiKey = process.env.GEMINI_API?.split(",")[0]?.trim();
+  if (geminiKey && !geminiKey.startsWith("your-gemini-key")) {
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const prompt = `You are a developer assistant. Based on the following WhatsApp chat messages from a user reporting a bug or requesting a feature, generate a single concise, descriptive issue title (5 to 10 words maximum). Do NOT include prefixes like [BUG], [FEATURE], quotes, markdown formatting, or trailing punctuation:\n\n${textParts}`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }]
+      });
+
+      const title = response.text?.trim()?.replace(/^["']|["']$/g, '');
+      if (title && title.length > 0) {
+        return title;
+      }
+    } catch (err: any) {
+      console.error("[GITHUB] Error generating title with Gemini:", err?.message || err);
+    }
+  }
+
+  // Fallback: use first non-empty text message
+  for (const m of messages) {
+    if (m.text && m.text.trim()) {
+      const firstLine = m.text.trim().split("\n")[0].trim();
+      return firstLine.length > 60 ? firstLine.slice(0, 57) + "..." : firstLine;
+    }
+  }
+
+  return "Issue reported via WhatsApp";
+}
+
 function getGroupConfig(groupJid: string): GitHubGroupConfig | null {
   if (process.env.GITHUB_PROJECTS_MAPPING) {
     try {
@@ -485,8 +612,8 @@ function checkConfig(): void {
 // 6. Export Plugin Definition
 export default {
   name: "githubprojects",
-  alias: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove"],
-  uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove"],
+  alias: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc"],
+  uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc"],
   description: "GitHub Projects ticketing system inside WhatsApp group chats",
   start: async (
     Atlas: AtlasClient,
@@ -535,6 +662,135 @@ export default {
     });
 
     switch (inputCMD) {
+      case "ghc": {
+        let category = args[0] ? args[0].toLowerCase().trim() : "app";
+        const VALID_CATEGORIES = ['app', 'web', 'backend', 'admin'];
+        if (!VALID_CATEGORIES.includes(category)) {
+          await doReact("❌");
+          return m.reply(`❗ Invalid Category. Must be one of: ${VALID_CATEGORIES.join(', ')}\n\n*Usage:* ${prefix}ghc [category]\n*Example:* ${prefix}ghc app`);
+        }
+
+        const senderId = m.sender || '';
+        const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
+
+        const list: any[] = (global as any).recentGroupMessages?.get(groupJid) || [];
+        // Scan strictly the last 20 messages in the chat (excluding the current command message)
+        const last20 = list.filter((item: any) => item.id !== m.id).slice(-20);
+
+        // Find messages where the sender placed a 🙏 reaction
+        const matchingItems = last20.filter((item: any) => {
+          if (!item.reactions || item.reactions.size === 0) return false;
+          for (const [reactor, emoji] of item.reactions.entries()) {
+            if (emoji && (emoji.includes("🙏") || emoji.startsWith("🙏")) && matchUser(reactor, senderId)) {
+              return true;
+            }
+          }
+          return false;
+        });
+
+        if (matchingItems.length === 0) {
+          await doReact("❌");
+          return m.reply(
+            `❗ No messages with 🙏 reaction from you were found in the last 20 messages.\n\n` +
+            `*Instructions:*\n` +
+            `1. React to the messages you want to include using the 🙏 emoji.\n` +
+            `2. Send \`${prefix}ghc [category]\` to create the ticket.`
+          );
+        }
+
+        await doReact("⏳");
+        const statusMsg = await m.reply(`⏳ Found ${matchingItems.length} message(s) with 🙏 reaction. Preparing ticket...`);
+
+        const draftMessages: DraftMessage[] = [];
+        for (const item of matchingItems) {
+          const data = await extractMessageData(Atlas, item);
+          if (data) {
+            draftMessages.push(data);
+          }
+        }
+
+        if (draftMessages.length === 0) {
+          if (statusMsg && statusMsg.key) {
+            await Atlas.sendMessage(m.from, { delete: statusMsg.key }).catch(() => {});
+          }
+          await doReact("❌");
+          return m.reply("❗ Could not extract valid text or image content from the reacted messages.");
+        }
+
+        const title = await inferTitle(draftMessages);
+
+        const draft: Draft = {
+          title,
+          category,
+          createdBy: senderId,
+          createdByName: senderName,
+          messages: draftMessages,
+          createdAt: Date.now()
+        };
+
+        try {
+          const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo);
+          const projectItem = await addIssueToProject(graphqlClient, groupConfig.projectId, issue.nodeId);
+          await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
+
+          // Clean up local temp images
+          for (const msg of draft.messages) {
+            if (msg.type === 'image' && msg.imagePath) {
+              try {
+                if (fs.existsSync(msg.imagePath)) {
+                  fs.unlinkSync(msg.imagePath);
+                }
+              } catch { }
+            }
+          }
+
+          // Change reaction on the messages to 🛟
+          for (const item of matchingItems) {
+            try {
+              await Atlas.sendMessage(m.from, {
+                react: {
+                  text: "🛟",
+                  key: item.key
+                }
+              });
+              // Remove 🙏 from internal memory so it is not re-processed
+              if (item.reactions) {
+                for (const [reactor] of item.reactions.entries()) {
+                  if (matchUser(reactor, senderId)) {
+                    item.reactions.delete(reactor);
+                  }
+                }
+              }
+            } catch (err) {
+              console.error("[GITHUB] Failed to change reaction to 🛟:", err);
+            }
+          }
+
+          if (statusMsg && statusMsg.key) {
+            await Atlas.sendMessage(m.from, { delete: statusMsg.key }).catch(() => {});
+          }
+
+          await doReact("✅");
+          await m.reply(
+            `🎫 *Ticket Created*\n\n` +
+            `*GH-${issue.number}*\n` +
+            `${issue.url}\n\n` +
+            `*Title:* ${title}\n` +
+            `*Category:* \`${category}\`\n` +
+            `*Status:* Todo\n\n` +
+            `_Changed reaction on ${matchingItems.length} message(s) to 🛟_`
+          );
+        } catch (err: any) {
+          console.error("Failed to create GitHub issue via /ghc:", err);
+          if (statusMsg && statusMsg.key) {
+            await Atlas.sendMessage(m.from, { delete: statusMsg.key }).catch(() => {});
+          }
+          await doReact("❌");
+          await m.reply(`❌ Failed to create ticket. Error: ${err.message}`);
+        }
+        break;
+      }
+
       case "ghcreate": {
         if (!text) {
           await doReact("❔");
