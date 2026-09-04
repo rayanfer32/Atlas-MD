@@ -38,7 +38,7 @@ export default {
     "wikipedia",
   ],
   description: "All picture related commands",
-  start: async (Atlas, m, { inputCMD, text, doReact, prefix, pushName }) => {
+  start: async (Atlas: any, m: any, { inputCMD, text, doReact, prefix, pushName }: any) => {
     switch (inputCMD) {
       case "google":
       case "search":
@@ -87,7 +87,7 @@ export default {
         await doReact("📃");
         await Atlas.sendPresenceUpdate('composing', m.from);
         try {
-          let result = await getLyrics(text);
+          let result: { status: number, lyrics: string, thumbnail: string, message?: string } = await getLyrics(text);
           if (
             result &&
             result.status !== 500 &&
@@ -109,7 +109,7 @@ export default {
             await doReact("❌");
             return m.reply(
               result?.message ||
-                `Unable to find lyrics for the song: *${text}*`,
+              `Unable to find lyrics for the song: *${text}*`,
             );
           }
         } catch (err) {
@@ -137,9 +137,8 @@ export default {
 
         let txt2 = `*🏮 YouTube Search Engine 🏮*\n\n_🧩 Search Term:_ *${text}*\n\n*📌 Total Results:* *${search.all.length}*\n`;
         for (let i of search.all) {
-          txt2 += `\n_Result:_ *${num++}*\n_🎀 Title:_ *${
-            i.title
-          }*\n_🔶 Duration:_ *${i.timestamp}*\n_🔷 Link:_ ${i.url}\n\n`;
+          txt2 += `\n_Result:_ *${num++}*\n_🎀 Title:_ *${i.title
+            }*\n_🔶 Duration:_ *${i.timestamp}*\n_🔷 Link:_ ${i.url}\n\n`;
         }
 
         /*let nums =1;
@@ -264,7 +263,7 @@ export default {
         try {
           const ghRes = await axios.get(`https://api.github.com/users/${text}`);
           GHuserInfo = ghRes.data;
-        } catch (error) {
+        } catch (error: any) {
           await doReact("❌");
           return m.reply(
             `GitHub user not found or API error: ${error.message}`,
@@ -304,7 +303,7 @@ export default {
           }
           const caption = `🖼️ *${picked.title || text}*\n_Type:_ ${picked.type || "Wallpaper"}\n\n_🧩 Powered by_ *${botName}*`;
           await Atlas.sendMessage(m.from, { image: { url: imgUrl }, caption }, { quoted: m });
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ WALLPAPER ] Error:", err.message);
           await doReact("❌");
           m.reply(`Wallpaper search failed: ${err.message}`);
@@ -340,7 +339,7 @@ export default {
           } else {
             await Atlas.sendMessage(m.from, { text: caption }, { quoted: m });
           }
-        } catch (err) {
+        } catch (err: any) {
           if (err.response?.status === 404) {
             await doReact("❌");
             return m.reply(`No Wikipedia article found for: *${text}*`);

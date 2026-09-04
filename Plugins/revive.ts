@@ -8,7 +8,7 @@ export default {
   uniquecommands: ["revive", "viewonce"],
   description: "Download and resend view once messages",
 
-  start: async (Atlas, m, { inputCMD, quoted, doReact, prefix }) => {
+  start: async (Atlas: any, m: any, { inputCMD, quoted, doReact, prefix }: any) => {
     try {
       // Must be a reply to a message
       if (!m.quoted) {
@@ -34,6 +34,11 @@ export default {
         quotedType === "viewOnceMessageV2" ||
         quotedType === "viewOnceMessageV2Extension";
 
+      if (!quotedType) {
+        await doReact("❌");
+        return m.reply("Could not read the quoted message.");
+      }
+
       // Case 2: Already unwrapped — imageMessage/videoMessage with viewOnce flag
       const innerMsg = rawQuoted[quotedType];
       const isUnwrappedViewOnce =
@@ -56,6 +61,10 @@ export default {
         // Unwrap the view-once container
         const extracted = extractMessageContent(rawQuoted);
         const mediaType = getContentType(extracted);
+        if (!extracted || !mediaType) {
+          await doReact("❌");
+          return m.reply("Could not extract media from the view once message.");
+        }
         mediaMsg = extracted[mediaType];
         isImage = mediaType.includes("image");
         isVideo = mediaType.includes("video");
@@ -109,7 +118,7 @@ export default {
       }
 
       await doReact("✅");
-    } catch (e) {
+    } catch (e: any) {
       console.log("[ REVIVE ERROR ]", e.message);
       await doReact("❌");
       m.reply("Failed to revive the view once message. It may have expired.");

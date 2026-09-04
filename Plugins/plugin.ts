@@ -17,8 +17,8 @@ export default {
   uniquecommands: ["install", "uninstall", "plugins", "pluginlist"],
   description: "Install, Uninstall, List plugins",
   start: async (
-    Atlas,
-    m,
+    Atlas: any,
+    m: any,
     {
       text,
       args,
@@ -28,7 +28,7 @@ export default {
       isCreator,
       isintegrated,
       doReact,
-    },
+    }: any,
   ) => {
     switch (inputCMD) {
       case "install": {
@@ -82,7 +82,7 @@ export default {
             await readcommands();
             await pushPlugin(fileName, text);
             await m.reply(`*${fileName}* Installed Successfully !`);
-          } catch (error) {
+          } catch (error: any) {
             console.error("[ EXCEPTION ] Plugin install error:", error.message);
             await m.reply(`Failed to install plugin: ${error.message}`);
           }

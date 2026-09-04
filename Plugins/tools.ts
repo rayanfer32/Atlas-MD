@@ -30,9 +30,9 @@ export default {
   description: "Various handy tool commands",
 
   start: async (
-    Atlas,
-    m,
-    { inputCMD, text, quoted, mime, doReact, prefix, isCreator, isintegrated },
+    Atlas: any,
+    m: any,
+    { inputCMD, text, quoted, mime, doReact, prefix, isCreator, isintegrated }: any,
   ) => {
     switch (inputCMD) {
       case "hd":
@@ -88,7 +88,7 @@ export default {
           );
 
           if (doReact) await doReact("✅");
-        } catch (e) {
+        } catch (e: any) {
           console.log("[ UPSCALE ERROR ]", e?.response?.data || e.message);
 
           if (doReact) await doReact("❌");
@@ -146,7 +146,7 @@ export default {
           const result = eval(text);
           const out =
             JSON.stringify(result, null, "\t") || "Evaluated JavaScript";
-        } catch (e) {
+        } catch (e: any) {
           m.reply(`Error: ${e.message}`);
         }
         break;
@@ -275,7 +275,7 @@ export default {
 
             req.end();
           }
-        } catch (e) {
+        } catch (e: any) {
           if (doReact) await doReact("❌");
           m.reply(`Error: ${e.message}`);
         }

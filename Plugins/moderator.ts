@@ -72,8 +72,8 @@ export default {
   ],
   description: "All Moderator/Owner Commands",
   start: async (
-    Atlas,
-    m,
+    Atlas: any,
+    m: any,
     {
       inputCMD,
       text,
@@ -98,7 +98,7 @@ export default {
       isAdmin,
       pushName,
       groupName,
-    },
+    }: any,
   ) => {
     const isUsermod = await checkMod(m.sender);
     if (
@@ -155,7 +155,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ EXCEPTION ] addmod error:", err.message);
           await doReact("❌");
           await m.reply(`An error occurred: ${err.message}`);
@@ -201,7 +201,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ EXCEPTION ] delmod error:", err.message);
           await doReact("❌");
           await m.reply(`An error occurred: ${err.message}`);
@@ -215,7 +215,7 @@ export default {
       case "mods": {
         await doReact("✅");
         try {
-          const modlist = await userData.find({ addedMods: "true" });
+          const modlist = await userData.find({ addedMods: true });
           let modlistString = "";
           const ownerList = global.owner;
           modlist.forEach((mod) => {
@@ -259,7 +259,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ EXCEPTION ] modlist error:", err.message);
           await doReact("❌");
           return Atlas.sendMessage(
@@ -325,7 +325,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ EXCEPTION ] ban error:", err.message);
           await doReact("❌");
           await m.reply(`Failed to ban user: ${err.message}`);
@@ -362,7 +362,7 @@ export default {
               },
               { quoted: m },
             );
-          } catch (err) {
+          } catch (err: any) {
             console.error("[ EXCEPTION ] unban error:", err.message);
             await doReact("❌");
             await m.reply(`Failed to unban user: ${err.message}`);
@@ -413,7 +413,7 @@ export default {
               try {
                 const meta = await Atlas.groupMetadata(gid);
                 gname = meta.subject || gid;
-              } catch {}
+              } catch { }
               banlistText += `  ${i + 1}. ${gname}\n`;
             }
           }
@@ -424,7 +424,7 @@ export default {
             { text: banlistText, mentions },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error("[ EXCEPTION ] banlist error:", err.message);
           await doReact("❌");
           await m.reply(`An error occurred while fetching the ban list.`);
@@ -764,7 +764,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (e) {
+        } catch (e: any) {
           await doReact("❌");
           m.reply(`Error: ${e.message}`);
         }

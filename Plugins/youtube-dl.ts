@@ -15,7 +15,7 @@ let mergedCommands = [
 const YT_REGEX =
   /^(https?:\/\/)?((www|m|music)\.)?(youtube(-nocookie)?\.com\/(watch\?v=|shorts\/|live\/)|youtu\.be\/)[\w-]+(\S+)?$/i;
 
-const extractUrl = (text) => {
+const extractUrl = (text: string) => {
   if (!text) return null;
   const match = text.match(YT_REGEX);
   return match ? match[0] : null;
@@ -27,7 +27,11 @@ export default {
   uniquecommands: ["play", "mp3", "mp4"],
   description: "Advanced YouTube system (API based)",
 
-  start: async (Atlas, m, { inputCMD, text, doReact, prefix }) => {
+  start: async (
+    Atlas: any,
+    m: any,
+    { inputCMD, text, doReact, prefix }: any,
+  ) => {
     const botName = global.botName || "ATLAS";
     let query = text?.trim();
 
@@ -74,6 +78,10 @@ export default {
               },
               { quoted: m },
             );
+          }
+
+          if (!videoUrl) {
+            return m.reply("❌ No video URL found");
           }
 
           const videoRes = await axios.get(
@@ -188,7 +196,7 @@ export default {
           );
           break;
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("[ EXCEPTION ] Error converting to opus:", err);
       m.reply(`❌ Error: ${err.message}`);
     }
