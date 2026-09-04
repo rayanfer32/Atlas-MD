@@ -13,7 +13,10 @@
   },
   "include": [
     "Plugins/**/*",
-    "System/**/*"
+    "System/**/*",
+    "core/**/*",
+    "types/**/*",
+    "index.ts"
   ],
   "exclude": [
     "node_modules"

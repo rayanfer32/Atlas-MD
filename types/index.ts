@@ -15,6 +15,7 @@ export interface QuotedMessage {
 }
 
 export interface WAMessage {
+    id?: string;
     isGroup: boolean;
     sender?: string;
     pushName?: string;
