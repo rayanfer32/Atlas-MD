@@ -446,32 +446,61 @@ function matchUser(userA: string, userB: string): boolean {
 
 async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<DraftMessage | null> {
   const msg = candidate.msg;
-  if (!msg || !msg.message) return null;
+  const messageId = candidate.id || candidate.key?.id || `msg-${Date.now()}`;
+  const timestamp = candidate.timestamp || (msg?.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : Date.now());
+
+  const senderId =
+    candidate.sender ||
+    msg?.key?.participant ||
+    msg?.participant ||
+    (msg?.key?.fromMe ? (Atlas as any).user?.id : 'unknown') ||
+    'unknown';
+  const senderName =
+    candidate.pushName ||
+    msg?.pushName ||
+    senderId.split('@')[0] ||
+    'Unknown';
+  const senderNumber = senderId.split('@')[0] || senderId;
+
+  if (!msg || !msg.message) {
+    console.warn(`[GITHUB] Cannot extract content for message ${messageId}: message body not cached in memory.`);
+    return null;
+  }
 
   try {
-    const s = await (Atlas as any).serializeM(msg);
-    const senderId = s.sender || candidate.sender || 'unknown';
-    const senderName = s.pushName || candidate.pushName || senderId.split('@')[0] || 'Unknown';
-    const senderNumber = senderId.split('@')[0] || senderId;
-    const timestamp = candidate.timestamp || Date.now();
-    const messageId = s.id || candidate.id;
-
-    if (s.type === 'conversation' || s.type === 'extendedTextMessage') {
-      return {
-        messageId,
-        senderName,
-        senderNumber,
-        type: 'text',
-        text: s.text || '',
-        timestamp
-      };
+    let message = msg.message;
+    // Recursively unwrap ephemeralMessage, viewOnceMessage, documentWithCaptionMessage, etc.
+    while (
+      message?.ephemeralMessage?.message ||
+      message?.viewOnceMessage?.message ||
+      message?.viewOnceMessageV2?.message ||
+      message?.documentWithCaptionMessage?.message
+    ) {
+      message =
+        message.ephemeralMessage?.message ||
+        message.viewOnceMessage?.message ||
+        message.viewOnceMessageV2?.message ||
+        message.documentWithCaptionMessage?.message;
     }
 
-    if (s.type === 'imageMessage') {
-      const caption = s.text || undefined;
+    // 1. Image message (with or without caption)
+    if (message?.imageMessage) {
+      const imgMsg = message.imageMessage;
+      const caption = imgMsg.caption || undefined;
       let imagePath: string | undefined;
+
       try {
-        const buffer = await s.download();
+        const { downloadMediaMessage } = await import("@whiskeysockets/baileys");
+        const buffer = await downloadMediaMessage(
+          { key: msg.key, message: { imageMessage: imgMsg } } as any,
+          "buffer",
+          {},
+          {
+            logger: { info: () => {}, debug: () => {}, warn: () => {}, error: () => {} } as any,
+            reuploadRequest: (Atlas as any).updateMediaMessage,
+          }
+        );
+
         if (buffer && Buffer.isBuffer(buffer)) {
           const tempDir = os.tmpdir();
           const filename = `qa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
@@ -493,13 +522,28 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
       };
     }
 
-    if (s.text) {
+    // 2. Text message (conversation, extendedTextMessage, captions on documents/videos)
+    let textContent =
+      message.conversation ||
+      message.extendedTextMessage?.text ||
+      message.documentMessage?.caption ||
+      message.videoMessage?.caption ||
+      '';
+
+    if (!textContent && (Atlas as any).serializeM) {
+      try {
+        const s = await (Atlas as any).serializeM(msg);
+        textContent = s.text || s.body || '';
+      } catch { }
+    }
+
+    if (textContent && textContent.trim()) {
       return {
         messageId,
         senderName,
         senderNumber,
         type: 'text',
-        text: s.text,
+        text: textContent.trim(),
         timestamp
       };
     }
@@ -694,9 +738,14 @@ export default {
         const statusMsg = await m.reply(`⏳ Found ${matchingItems.length} message(s) with 🙏 reaction. Preparing ticket...`);
 
         const draftMessages: DraftMessage[] = [];
+        let missingBodyCount = 0;
+
         for (const item of matchingItems) {
           if (!item.msg && (global as any).store?.loadMessage) {
             item.msg = await (global as any).store.loadMessage(groupJid, item.id);
+          }
+          if (!item.msg || !item.msg.message) {
+            missingBodyCount++;
           }
           const data = await extractMessageData(Atlas, item);
           if (data) {
@@ -709,6 +758,13 @@ export default {
             await Atlas.sendMessage(m.from, { delete: statusMsg.key }).catch(() => {});
           }
           await doReact("❌");
+          if (missingBodyCount > 0) {
+            return m.reply(
+              `❗ Could not extract content from the reacted message(s).\n\n` +
+              `*Reason:* ${missingBodyCount} message(s) were sent before the bot was started and are not stored in memory.\n\n` +
+              `*Tip:* To include older messages sent before the bot started, use \`${prefix}ghcreate <category>: <title>\` and reply to the message with \`${prefix}ghadd\`.`
+            );
+          }
           return m.reply("❗ Could not extract valid text or image content from the reacted messages.");
         }
 

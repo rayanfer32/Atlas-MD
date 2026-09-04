@@ -206,7 +206,9 @@ export const store: AtlasStore = {
           }
 
           // Handle reaction message delivered via messages.upsert
-          const reactionMsg = msg.message?.reactionMessage;
+          const reactionMsg =
+            msg.message?.reactionMessage ||
+            msg.message?.ephemeralMessage?.message?.reactionMessage;
           if (reactionMsg) {
             const targetId = reactionMsg.key?.id;
             const reactor = msg.key?.participant || (msg.key?.fromMe ? "me" : msg.participant) || msg.key?.remoteJid;
