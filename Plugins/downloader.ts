@@ -21,9 +21,9 @@ const SF = /https?:\/\/sfile\.co\/[^\s]+/gi;
 /**
  * Extract URL text, return { type, url } or null
  */
-const ext = (txt) => {
+const ext = (txt: string | null | undefined) => {
   if (!txt) return null;
-  const clean = (m) => m?.[0]?.replace(/[.,!?]$/, "");
+  const clean = (m: RegExpMatchArray | null) => m?.[0]?.replace(/[.,!?]$/, "") || "";
   let m = txt.match(TT);
   if (m) return { type: "tt", url: clean(m) };
   m = txt.match(IG);
@@ -63,7 +63,7 @@ const ext = (txt) => {
   return null;
 };
 
-const tt = async (url) => {
+const tt = async (url: string) => {
   const { data: d } = await axios.get(
     `https://tikwm.com/api/?url=${encodeURIComponent(url)}`,
   );
@@ -74,7 +74,7 @@ const tt = async (url) => {
   return { type: r.type, data: r.data };
 };
 
-const ig = async (url) => {
+const ig = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api-faa.my.id/faa/igdl?url=${encodeURIComponent(url)}`,
   );
@@ -83,7 +83,7 @@ const ig = async (url) => {
   return { urls: d.result.url, isVideo: d.result.metadata?.isVideo };
 };
 
-const pin = async (url) => {
+const pin = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api-faa.my.id/faa/pin-down?url=${encodeURIComponent(url)}`,
   );
@@ -92,7 +92,7 @@ const pin = async (url) => {
   return d.result.medias;
 };
 
-const fb = async (url) => {
+const fb = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api-faa.my.id/faa/fbdownload?url=${encodeURIComponent(url)}`,
   );
@@ -101,7 +101,7 @@ const fb = async (url) => {
   return d.result.media;
 };
 
-const tw = async (url) => {
+const tw = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/twitter?url=${encodeURIComponent(url)}`,
   );
@@ -110,7 +110,7 @@ const tw = async (url) => {
   return { type: d.result.type, data: d.result.download_url };
 };
 
-const vd = async (url) => {
+const vd = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/videy?url=${encodeURIComponent(url)}`,
   );
@@ -118,7 +118,7 @@ const vd = async (url) => {
   return d.result;
 };
 
-const mf = async (url) => {
+const mf = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api-faa.my.id/faa/mediafire?url=${encodeURIComponent(url)}`,
   );
@@ -127,7 +127,7 @@ const mf = async (url) => {
   return d.result;
 };
 
-const th = async (url) => {
+const th = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/threads?url=${encodeURIComponent(url)}`,
   );
@@ -136,7 +136,7 @@ const th = async (url) => {
   return d.result.media;
 };
 
-const mg = async (url) => {
+const mg = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/mega?url=${encodeURIComponent(url)}`,
   );
@@ -144,7 +144,7 @@ const mg = async (url) => {
   return d.result;
 };
 
-const sc = async (url) => {
+const sc = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/soundcloud?url=${encodeURIComponent(url)}`,
   );
@@ -153,7 +153,7 @@ const sc = async (url) => {
   return d.result;
 };
 
-const sp = async (url) => {
+const sp = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/spotify?url=${encodeURIComponent(url)}`,
   );
@@ -162,7 +162,7 @@ const sp = async (url) => {
   return d.result;
 };
 
-const yt = async (url) => {
+const yt = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/ytmp3?url=${encodeURIComponent(url)}`,
   );
@@ -171,7 +171,7 @@ const yt = async (url) => {
   return d.result;
 };
 
-const sf = async (url) => {
+const sf = async (url: string) => {
   const { data: d } = await axios.get(
     `https://api.nexray.web.id/downloader/sfile?url=${encodeURIComponent(url)}`,
   );
@@ -185,7 +185,7 @@ export default {
   alias: [...mergedCommands],
   uniquecommands: ["download"],
   description: "Multi-platform media downloader",
-  start: async (Atlas, m, { args, prefix, command, doReact }) => {
+  start: async (Atlas: any, m: any, { args, prefix, command, doReact }: any) => {
     let raw = args.join(" ").trim();
     if (!raw && m.quoted?.text) raw = m.quoted.text;
 
@@ -266,7 +266,7 @@ MediaFire
         case "pin": {
           const meds = await pin(url.url);
           if (!meds || meds.length === 0) throw new Error("No media found");
-          const imgs = meds.filter((m) => m.type === "image");
+          const imgs = meds.filter((m: any) => m.type === "image");
           if (imgs.length > 0) {
             for (let img of imgs) {
               await Atlas.sendMessage(
@@ -276,8 +276,8 @@ MediaFire
               );
             }
           } else {
-            const vid = meds.find((m) => m.type === "video");
-            const gif = meds.find((m) => m.type === "gif");
+            const vid = meds.find((m: any) => m.type === "video");
+            const gif = meds.find((m: any) => m.type === "gif");
             if (vid) {
               await Atlas.sendMessage(
                 m.from,
@@ -333,11 +333,11 @@ MediaFire
           } else if (r.type === "video") {
             if (!r.data || r.data.length === 0)
               throw new Error("No video data found");
-            const vqs = r.data.filter((item) => item.type === "mp4");
+            const vqs = r.data.filter((item: any) => item.type === "mp4");
             let best =
-              vqs.find((v) => v.resolusi === "768p") ||
-              vqs.find((v) => v.resolusi === "640p") ||
-              vqs.find((v) => v.resolusi === "426p") ||
+              vqs.find((v: any) => v.resolusi === "768p") ||
+              vqs.find((v: any) => v.resolusi === "640p") ||
+              vqs.find((v: any) => v.resolusi === "426p") ||
               vqs[0];
             if (best) {
               await Atlas.sendMessage(
@@ -382,8 +382,8 @@ MediaFire
         case "th": {
           const meds = await th(url.url);
           if (!meds || meds.length === 0) throw new Error("No media found");
-          const vids = meds.filter((m) => m.thumbnail && m.thumbnail !== "-");
-          const imgs = meds.filter((m) => !m.thumbnail || m.thumbnail === "-");
+          const vids = meds.filter((m: any) => m.thumbnail && m.thumbnail !== "-");
+          const imgs = meds.filter((m: any) => !m.thumbnail || m.thumbnail === "-");
           if (vids.length > 0) {
             await Atlas.sendMessage(
               m.from,
@@ -481,7 +481,7 @@ MediaFire
         }
       }
       if (doReact) await doReact("🍁");
-    } catch (e) {
+    } catch (e: any) {
       m.reply(`Error: ${e.message}`);
       if (doReact) await doReact("❌");
     }

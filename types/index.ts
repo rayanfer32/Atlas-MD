@@ -10,8 +10,9 @@ export interface QuotedMessage {
     id?: string;
     type?: string;
     caption?: string;
-    download: () => Promise<Buffer>;
+    download?: () => Promise<Buffer>;
     text?: string;
+    [key: string]: any;
 }
 
 export interface WAMessage {
@@ -23,4 +24,5 @@ export interface WAMessage {
     quoted?: QuotedMessage | null;
     from: string;
     key: any;
+    [key: string]: any;
 }

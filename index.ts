@@ -575,8 +575,10 @@ export const startAtlas = async (trigger: string = "initial"): Promise<any> => {
 
 // Periodic MongoDB session sync with mutex lock
 const runPeriodicSync = async (): Promise<void> => {
-  if (sessionSyncPaused || !mongoAuth || periodicSyncPromise) {
-    return periodicSyncPromise || Promise.resolve();
+  if (sessionSyncPaused || !mongoAuth) return;
+  if (periodicSyncPromise) {
+    await periodicSyncPromise;
+    return;
   }
 
   periodicSyncPromise = mongoAuth
@@ -591,7 +593,7 @@ const runPeriodicSync = async (): Promise<void> => {
       periodicSyncPromise = null;
     });
 
-  return periodicSyncPromise;
+  await periodicSyncPromise;
 };
 
 // Active Connection Watchdog with WhatsApp IQ health ping probe

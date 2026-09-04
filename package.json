@@ -88,7 +88,8 @@
   "devDependencies": {
     "jimp": "^1.6.0",
     "link-preview-js": "^3.0.0",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "jimp": "^0.16.1",

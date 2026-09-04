@@ -71,8 +71,8 @@ export default {
   ],
   description: "All Group Management Commands",
   start: async (
-    Atlas,
-    m,
+    Atlas: any,
+    m: any,
     {
       inputCMD,
       text,
@@ -91,12 +91,12 @@ export default {
       isBotAdmin,
       groupAdmin,
       isAdmin,
-    },
+    }: any,
   ) => {
     const messageSender = m.sender;
     const quotedsender = m.quoted ? m.quoted.sender : mentionByTag[0];
     // Helper: check if a JID belongs to the bot (handles phone JID, LID, or any format)
-    const isBotJid = (jid) => {
+    const isBotJid = (jid: any) => {
       if (!jid) return false;
       if (jid === botNumber || jid === botLid) return true;
       // Also check via the LID<->JID map
@@ -165,7 +165,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           await m.reply(`Failed to update group name: ${err.message}`);
         }
         break;
@@ -307,7 +307,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           await Atlas.sendMessage(
             m.from,
             { text: `Failed to fetch group link: ${err.message}` },
@@ -362,14 +362,14 @@ export default {
         }
         const groupParticipants = m.isGroup ? await metadata.participants : "";
         const groupAdmins = m.isGroup
-          ? groupParticipants.filter((v) => v.admin !== null).map((v) => v.id)
+          ? groupParticipants.filter((v: any) => v.admin !== null).map((v: any) => v.id)
           : "";
         const desc = metadata.desc ? metadata.desc : "No Description";
         const txt = `                 *『 Group Info 』*\n\n_🎀 Group Name:_ *${
           metadata.subject
         }*\n\n_🧩 Group Description:_\n${desc}\n\n_👑 Group Owner:_ @${
           metadata.owner.split("@")[0]
-        }\n_💫 Group Created on:_ *${moment(`${metadata.creation}` * 1000)
+        }\n_💫 Group Created on:_ *${moment(Number(metadata.creation) * 1000)
           .tz("Asia/Kolkata")
           .format("DD/MM/YYYY")}*\n_📛 Total Admins:_ *${
           groupAdmins.length
@@ -411,7 +411,7 @@ export default {
         await doReact("🎌");
         Atlas.sendMessage(
           m.from,
-          { text: message2, mentions: participants.map((a) => a.id) },
+          { text: message2, mentions: participants.map((a: any) => a.id) },
           { quoted: m },
         );
         break;
@@ -432,11 +432,11 @@ export default {
           await Atlas.sendMessage(m.from, {
             image: { url: "https://wallpapercave.com/wp/wp9667218.png" },
             caption: `I'm Leaving this group on request... \n\nTake care everyone :)`,
-            mentions: participants.map((a) => a.id),
+            mentions: participants.map((a: any) => a.id),
             quoted: m,
           });
           await Atlas.groupLeave(m.from);
-        } catch (e) {
+        } catch (e: any) {
           await Atlas.sendMessage(
             m.from,
             { text: `An error occurred !` },
@@ -562,7 +562,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           await m.reply(`Failed to remove user: ${err.message}`);
         }
         break;
@@ -651,7 +651,7 @@ export default {
             },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           await m.reply(`Failed to update description: ${err.message}`);
         }
         break;
@@ -680,7 +680,7 @@ export default {
             { text: `Group link has been *Updated* Successfully!` },
             { quoted: m },
           );
-        } catch (err) {
+        } catch (err: any) {
           await m.reply(`Failed to revoke link: ${err.message}`);
         }
         break;
@@ -720,7 +720,7 @@ export default {
         await doReact("〽️");
         Atlas.sendMessage(
           m.from,
-          { text: mess, mentions: participants.map((a) => a.id) },
+          { text: mess, mentions: participants.map((a: any) => a.id) },
           { quoted: m },
         );
         break;

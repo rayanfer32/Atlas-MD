@@ -31,8 +31,8 @@ export default {
   uniquecommands: ["script", "support", "help", "alive", "restart", "getid"],
   description: "All system commands",
   start: async (
-    Atlas,
-    m,
+    Atlas: any,
+    m: any,
     {
       pushName,
       prefix,
@@ -42,7 +42,7 @@ export default {
       args,
       isCreator,
       isintegrated,
-    },
+    }: any,
   ) => {
     const pic = fs.readFileSync("./Assets/Atlas.jpg");
     switch (inputCMD) {
@@ -56,7 +56,7 @@ export default {
         await doReact("⚡");
         try {
           // safe() runs fn and returns null instead of throwing
-          const safe = (fn) => {
+          const safe = <T>(fn: () => T): T | null => {
             try {
               return fn() ?? null;
             } catch {
@@ -127,7 +127,7 @@ export default {
           });
 
           // L() returns a formatted line or null — nulls are filtered out
-          const L = (icon, label, val) =>
+          const L = (icon: string, label: string, val: any) =>
             val ? `${icon} *${label} :* ${val}` : null;
 
           const uptimeLines = [
@@ -170,7 +170,7 @@ export default {
             { image: pic, caption: parts.join("\n") },
             { quoted: m },
           );
-        } catch (e) {
+        } catch (e: any) {
           await doReact("❌");
           m.reply(`Error: ${e.message}`);
         }
@@ -205,8 +205,8 @@ export default {
       case "menu":
         await doReact("☃️");
         await Atlas.sendPresenceUpdate("composing", m.from);
-        async function readUniqueCommands(dirPath) {
-          const allCommands = [];
+        async function readUniqueCommands(dirPath: string): Promise<string[][]> {
+          const allCommands: string[][] = [];
 
           const files = fs.readdirSync(dirPath);
 
@@ -244,7 +244,7 @@ export default {
           return allCommands;
         }
 
-        const categoryIcons = {
+        const categoryIcons: Record<string, { icon: string; label: string }> = {
           core: { icon: "🎐", label: "ᴄᴏʀᴇ" },
           moderator: { icon: "🛡️", label: "ᴍᴏᴅᴇʀᴀᴛᴏʀ" },
           group: { icon: "🏮", label: "ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ" },
@@ -267,10 +267,10 @@ export default {
           tools: { icon: "🧰", label: "ᴛᴏᴏʟꜱ" },
         };
 
-        function formatCommands(allCommands) {
+        function formatCommands(allCommands: string[][]) {
           let formatted = "";
           for (const [file, ...commands] of allCommands) {
-            const name = file.replace(".js", "");
+            const name = file.replace(/\.(js|ts)$/, "");
             const meta = categoryIcons[name] || {
               icon: "📌",
               label: name.toUpperCase(),
@@ -279,7 +279,7 @@ export default {
             for (let i = 0; i < commands.length; i += 3) {
               const chunk = commands
                 .slice(i, i + 3)
-                .map((c) => `${prefix}${c}`)
+                .map((c: string) => `${prefix}${c}`)
                 .join(", ");
               rows.push(`    ❯  ${chunk}`);
             }
@@ -299,7 +299,7 @@ export default {
         const pluginsDir = path.join(process.cwd(), "Plugins");
         const allCommands = await readUniqueCommands(pluginsDir);
         const totalCmds = allCommands.reduce(
-          (acc, arr) => acc + arr.length - 1,
+          (acc: number, arr: string[]) => acc + arr.length - 1,
           0,
         );
         const formattedCommands = formatCommands(allCommands);
@@ -341,7 +341,7 @@ export default {
             { text: `✅ *Plugins reloaded successfully!*` },
             { quoted: m }
           );
-        } catch (err) {
+        } catch (err: any) {
           console.error(err);
           await Atlas.sendMessage(
             m.from,
