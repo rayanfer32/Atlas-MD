@@ -527,7 +527,7 @@ async function inferTitle(messages: DraftMessage[]): Promise<string> {
       const prompt = `You are a developer assistant. Based on the following WhatsApp chat messages from a user reporting a bug or requesting a feature, generate a single concise, descriptive issue title (5 to 10 words maximum). Do NOT include prefixes like [BUG], [FEATURE], quotes, markdown formatting, or trailing punctuation:\n\n${textParts}`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: process.env.GEMINI_MODEL || "gemini-3.6-flash",
         contents: [{ role: "user", parts: [{ text: prompt }] }]
       });
 
