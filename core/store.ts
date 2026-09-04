@@ -18,11 +18,27 @@ export interface PendingReactionItem {
   reactors: Set<string>;
 }
 
+export const MESSAGE_CACHE_TTL_MS =
+  Math.max(
+    30,
+    parseInt(process.env.MESSAGE_CACHE_TTL_MINUTES || "360", 10) || 360
+  ) *
+  60 *
+  1000;
+
+export const MESSAGE_CACHE_MAX_PER_CHAT = Math.max(
+  50,
+  parseInt(process.env.MESSAGE_CACHE_MAX_PER_CHAT || "500", 10) || 500
+);
+
 export interface AtlasStore {
   contacts: Record<string, any>;
   messages: Record<string, Record<string, any>>;
+  messageTimes: Record<string, Record<string, number>>;
+  messageQueue: Record<string, Array<{ id: string; cachedAt: number }>>;
   bind: (ev: any) => void;
   loadMessage: (jid: string, id: string) => Promise<any>;
+  pruneMessages: (now?: number) => void;
 }
 
 // Global mappings used across plugins and event handlers
@@ -125,6 +141,38 @@ export function recordPendingReaction(
 export const store: AtlasStore = {
   contacts: {},
   messages: {},
+  messageTimes: {},
+  messageQueue: {},
+  pruneMessages(now = Date.now()) {
+    for (const [jid, queue] of Object.entries(store.messageQueue)) {
+      const messages = store.messages[jid];
+      const messageTimes = store.messageTimes[jid];
+      if (!messages || !messageTimes) {
+        delete store.messageQueue[jid];
+        delete store.messages[jid];
+        delete store.messageTimes[jid];
+        continue;
+      }
+
+      while (
+        queue.length > 0 &&
+        (queue.length > MESSAGE_CACHE_MAX_PER_CHAT ||
+          now - queue[0].cachedAt > MESSAGE_CACHE_TTL_MS)
+      ) {
+        const oldest = queue.shift();
+        if (oldest && messageTimes[oldest.id] === oldest.cachedAt) {
+          delete messages[oldest.id];
+          delete messageTimes[oldest.id];
+        }
+      }
+
+      if (queue.length === 0) {
+        delete store.messageQueue[jid];
+        delete store.messages[jid];
+        delete store.messageTimes[jid];
+      }
+    }
+  },
   bind(ev: any) {
     let lidLogTimer: NodeJS.Timeout | null = null;
 
@@ -186,8 +234,21 @@ export const store: AtlasStore = {
       for (const msg of messages) {
         if (!msg.key?.remoteJid || !msg.key?.id) continue;
         const jid = msg.key.remoteJid;
+        const cachedAt = Date.now();
         if (!store.messages[jid]) store.messages[jid] = {};
+        if (!store.messageTimes[jid]) store.messageTimes[jid] = {};
+        if (!store.messageQueue[jid]) store.messageQueue[jid] = [];
         store.messages[jid][msg.key.id] = msg;
+        store.messageTimes[jid][msg.key.id] = cachedAt;
+        store.messageQueue[jid].push({ id: msg.key.id, cachedAt });
+
+        while (store.messageQueue[jid].length > MESSAGE_CACHE_MAX_PER_CHAT) {
+          const oldest = store.messageQueue[jid].shift();
+          if (oldest && store.messageTimes[jid][oldest.id] === oldest.cachedAt) {
+            delete store.messages[jid][oldest.id];
+            delete store.messageTimes[jid][oldest.id];
+          }
+        }
 
         // Track in recentGroupMessages if it's a group
         if (jid.endsWith("@g.us")) {

@@ -72,59 +72,26 @@ export function initSleepScheduler(startAtlasFn: () => Promise<void>): void {
 }
 
 /**
- * Initializes periodic garbage collection, session sync to MongoDB, and watchdog reconnect.
+ * Initializes periodic garbage collection and session sync to MongoDB.
  */
 export function initGCScheduler(
-  getMongoAuth: () => any,
-  startAtlasFn: () => Promise<void>
-): void {
+  runPeriodicSyncFn: () => Promise<any>
+): NodeJS.Timeout {
   const GC_INTERVAL_MINUTES = Math.max(
     1,
     parseInt(process.env.GC_INTERVAL_MINUTES || "30", 10)
   );
 
-  const runPeriodicSync = async () => {
-    const mongoAuth = getMongoAuth();
-    if (mongoAuth) {
-      await mongoAuth
-        .pushToMongoDB()
-        .catch((err: any) =>
-          console.error(
-            chalk.redBright(`[ ATLAS ] MongoDB session sync error: ${err.message}`)
-          )
-        );
-      console.log(chalk.cyan(`[ ATLAS ] Session synced to MongoDB`));
-    }
-  };
-
-  const runWatchdog = () => {
-    const socket = getServerSocket();
-    if (!socket) return;
-    // WebSocket readyState: 0=CONNECTING 1=OPEN 2=CLOSING 3=CLOSED
-    const wsReady = socket.ws?.readyState;
-    const status = getServerStatus();
-
-    if (wsReady !== undefined && wsReady !== 1 && status === "open") {
-      console.log(
-        chalk.yellow(
-          `[ ATLAS ] Session Watchdog: silent disconnect detected (wsState=${wsReady}) — reconnecting...`
-        )
-      );
-      setServerStatus("reconnecting");
-      startAtlasFn();
-    }
-  };
-
+  let timer: NodeJS.Timeout;
   if (typeof (global as any).gc === "function") {
-    setInterval(async () => {
+    timer = setInterval(async () => {
       (global as any).gc();
       console.log(
         chalk.cyan(
           `[ ATLAS ] Garbage collection triggered (interval: ${GC_INTERVAL_MINUTES}m)`
         )
       );
-      await runPeriodicSync();
-      runWatchdog();
+      await runPeriodicSyncFn();
     }, GC_INTERVAL_MINUTES * 60 * 1000);
 
     console.log(
@@ -136,9 +103,10 @@ export function initGCScheduler(
     console.warn(
       "[ ATLAS ] GC not available. Start the bot with 'npm start' to enable garbage collection."
     );
-    setInterval(() => {
-      runPeriodicSync();
-      runWatchdog();
+    timer = setInterval(() => {
+      void runPeriodicSyncFn();
     }, GC_INTERVAL_MINUTES * 60 * 1000);
   }
+
+  return timer;
 }

@@ -38,6 +38,23 @@ export function setServerSocket(socket: any): void {
   (global as any).AtlasSocket = socket;
 }
 
+export interface ConnectionDiagnostics {
+  websocketOpen?: boolean;
+  reconnectAttempt?: number;
+  healthProbeFailures?: number;
+  lastConnectionUpdate?: string;
+}
+
+let diagnostics: ConnectionDiagnostics = {};
+
+export function setConnectionDiagnostics(diag: Partial<ConnectionDiagnostics>): void {
+  diagnostics = { ...diagnostics, ...diag };
+}
+
+export function getConnectionDiagnostics(): ConnectionDiagnostics {
+  return diagnostics;
+}
+
 export function getServerSocket(): any {
   return socketInstance;
 }
@@ -45,7 +62,13 @@ export function getServerSocket(): any {
 // --- GUI API Endpoints ---
 
 app.get("/api/status", (_req: Request, res: Response) => {
-  res.json({ status: serverStatus });
+  res.json({
+    status: serverStatus,
+    websocketOpen: Boolean(socketInstance?.ws?.isOpen),
+    reconnectAttempt: diagnostics.reconnectAttempt ?? 0,
+    healthProbeFailures: diagnostics.healthProbeFailures ?? 0,
+    lastConnectionUpdate: diagnostics.lastConnectionUpdate ?? new Date().toISOString(),
+  });
 });
 
 app.get("/api/qr", async (_req: Request, res: Response) => {
