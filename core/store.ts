@@ -8,6 +8,16 @@ export interface StoredMessageEntry {
   reactions: Map<string, string>;
 }
 
+export interface PendingReactionItem {
+  id: string;
+  key: any;
+  msg?: any;
+  sender?: string;
+  pushName?: string;
+  timestamp: number;
+  reactors: Set<string>;
+}
+
 export interface AtlasStore {
   contacts: Record<string, any>;
   messages: Record<string, Record<string, any>>;
@@ -18,6 +28,99 @@ export interface AtlasStore {
 // Global mappings used across plugins and event handlers
 (global as any).lidToJidMap = new Map<string, string>();
 (global as any).recentGroupMessages = new Map<string, StoredMessageEntry[]>();
+if (!(global as any).pendingTicketMessages) {
+  (global as any).pendingTicketMessages = new Map<string, Map<string, PendingReactionItem>>();
+}
+
+export function isGitHubMappedGroup(jid: string): boolean {
+  if (!jid || !jid.endsWith("@g.us")) return false;
+  if (process.env.GITHUB_PROJECTS_MAPPING) {
+    try {
+      const mapping = JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
+      return !!mapping[jid];
+    } catch {
+      return false;
+    }
+  }
+  return !!(
+    process.env.GITHUB_OWNER &&
+    process.env.GITHUB_REPO &&
+    process.env.GITHUB_PROJECT_ID &&
+    process.env.GITHUB_STATUS_FIELD_ID
+  );
+}
+
+export function recordPendingReaction(
+  jid: string,
+  targetKey: any,
+  reactor: string,
+  emoji?: string | null
+): void {
+  if (!isGitHubMappedGroup(jid)) return;
+  const targetId = targetKey?.id;
+  if (!targetId) return;
+
+  const pendingMap: Map<string, Map<string, PendingReactionItem>> = (global as any).pendingTicketMessages;
+  if (!pendingMap.has(jid)) {
+    pendingMap.set(jid, new Map());
+  }
+  const groupPending = pendingMap.get(jid)!;
+
+  const isPrayer = emoji && emoji.includes("🙏");
+
+  if (isPrayer) {
+    let item = groupPending.get(targetId);
+    if (!item) {
+      const rawMsg =
+        store.messages[jid]?.[targetId] ||
+        (global as any).recentGroupMessages?.get(jid)?.find((m: any) => m.id === targetId)?.msg;
+
+      const sender =
+        rawMsg?.key?.participant ||
+        rawMsg?.participant ||
+        targetKey?.participant ||
+        "unknown";
+      const pushName = rawMsg?.pushName;
+      const timestamp = rawMsg?.messageTimestamp
+        ? Number(rawMsg.messageTimestamp) * 1000
+        : Date.now();
+
+      item = {
+        id: targetId,
+        key: rawMsg?.key || targetKey,
+        msg: rawMsg,
+        sender,
+        pushName,
+        timestamp,
+        reactors: new Set(),
+      };
+      groupPending.set(targetId, item);
+    }
+    item.reactors.add(reactor);
+
+    if (!item.msg) {
+      item.msg =
+        store.messages[jid]?.[targetId] ||
+        (global as any).recentGroupMessages?.get(jid)?.find((m: any) => m.id === targetId)?.msg;
+    }
+    console.log(`[GITHUB] Stored 🙏 reaction for message ${targetId} in ${jid} (reactors: ${item.reactors.size})`);
+  } else {
+    // Reaction removed or changed away from 🙏
+    const item = groupPending.get(targetId);
+    if (item) {
+      item.reactors.delete(reactor);
+      for (const r of item.reactors) {
+        if (r === reactor || (reactor === "me" && r.includes("@s.whatsapp.net"))) {
+          item.reactors.delete(r);
+        }
+      }
+      if (item.reactors.size === 0) {
+        groupPending.delete(targetId);
+        console.log(`[GITHUB] Removed message ${targetId} from ticket queue in ${jid} (no remaining 🙏 reactions)`);
+      }
+    }
+  }
+}
 
 export const store: AtlasStore = {
   contacts: {},
@@ -88,13 +191,29 @@ export const store: AtlasStore = {
 
         // Track in recentGroupMessages if it's a group
         if (jid.endsWith("@g.us")) {
+          // If message was already waiting for content in pendingTicketMessages
+          const pendingMap: Map<string, Map<string, PendingReactionItem>> = (global as any).pendingTicketMessages;
+          const groupPending = pendingMap?.get(jid);
+          if (groupPending?.has(msg.key.id)) {
+            const pendingItem = groupPending.get(msg.key.id)!;
+            if (!pendingItem.msg) {
+              pendingItem.msg = msg;
+              pendingItem.sender = msg.key.participant || msg.participant || pendingItem.sender;
+              pendingItem.pushName = msg.pushName || pendingItem.pushName;
+              pendingItem.timestamp = msg.messageTimestamp ? Number(msg.messageTimestamp) * 1000 : pendingItem.timestamp;
+              pendingItem.key = msg.key;
+            }
+          }
+
           // Handle reaction message delivered via messages.upsert
           const reactionMsg = msg.message?.reactionMessage;
           if (reactionMsg) {
             const targetId = reactionMsg.key?.id;
-            const reactor = msg.key?.participant || msg.participant || msg.key?.remoteJid;
+            const reactor = msg.key?.participant || (msg.key?.fromMe ? "me" : msg.participant) || msg.key?.remoteJid;
             const emoji = reactionMsg.text;
             if (targetId && reactor) {
+              recordPendingReaction(jid, reactionMsg.key, reactor, emoji);
+
               const list: StoredMessageEntry[] = (global as any).recentGroupMessages.get(jid);
               if (list) {
                 const target = list.find((m) => m.id === targetId);
@@ -146,14 +265,20 @@ export const store: AtlasStore = {
         const jid = item.key?.remoteJid;
         const targetId = item.key?.id;
         if (!jid || !targetId || !jid.endsWith("@g.us")) continue;
+
+        const reactor =
+          item.reaction?.key?.participant ||
+          (item.reaction?.key?.fromMe ? "me" : (item.key?.participant || item.key?.remoteJid || "unknown"));
+        const emoji = item.reaction?.text;
+
+        recordPendingReaction(jid, item.key, reactor, emoji);
+
         const list: StoredMessageEntry[] = (global as any).recentGroupMessages?.get(jid);
         if (!list) continue;
         const target = list.find((m) => m.id === targetId);
         if (!target) continue;
         if (!target.reactions) target.reactions = new Map();
 
-        const reactor = item.reaction?.key?.participant || item.reaction?.key?.remoteJid;
-        const emoji = item.reaction?.text;
         if (reactor) {
           if (emoji) {
             target.reactions.set(reactor, emoji);

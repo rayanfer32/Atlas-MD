@@ -673,36 +673,31 @@ export default {
         const senderId = m.sender || '';
         const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
 
-        const list: any[] = (global as any).recentGroupMessages?.get(groupJid) || [];
-        // Scan strictly the last 20 messages in the chat (excluding the current command message)
-        const last20 = list.filter((item: any) => item.id !== m.id).slice(-20);
-
-        // Find messages where the sender placed a 🙏 reaction
-        const matchingItems = last20.filter((item: any) => {
-          if (!item.reactions || item.reactions.size === 0) return false;
-          for (const [reactor, emoji] of item.reactions.entries()) {
-            if (emoji && (emoji.includes("🙏") || emoji.startsWith("🙏")) && matchUser(reactor, senderId)) {
-              return true;
-            }
-          }
-          return false;
-        });
+        const pendingMap: Map<string, Map<string, any>> = (global as any).pendingTicketMessages;
+        const groupPending = pendingMap?.get(groupJid);
+        const matchingItems: any[] = groupPending ? Array.from(groupPending.values()) : [];
 
         if (matchingItems.length === 0) {
           await doReact("❌");
           return m.reply(
-            `❗ No messages with 🙏 reaction from you were found in the last 20 messages.\n\n` +
+            `❗ No messages with 🙏 reaction were found in this group.\n\n` +
             `*Instructions:*\n` +
             `1. React to the messages you want to include using the 🙏 emoji.\n` +
             `2. Send \`${prefix}ghc [category]\` to create the ticket.`
           );
         }
 
+        // Sort messages in chronological order
+        matchingItems.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
         await doReact("⏳");
         const statusMsg = await m.reply(`⏳ Found ${matchingItems.length} message(s) with 🙏 reaction. Preparing ticket...`);
 
         const draftMessages: DraftMessage[] = [];
         for (const item of matchingItems) {
+          if (!item.msg && (global as any).store?.loadMessage) {
+            item.msg = await (global as any).store.loadMessage(groupJid, item.id);
+          }
           const data = await extractMessageData(Atlas, item);
           if (data) {
             draftMessages.push(data);
@@ -753,18 +748,13 @@ export default {
                   key: item.key
                 }
               });
-              // Remove 🙏 from internal memory so it is not re-processed
-              if (item.reactions) {
-                for (const [reactor] of item.reactions.entries()) {
-                  if (matchUser(reactor, senderId)) {
-                    item.reactions.delete(reactor);
-                  }
-                }
-              }
             } catch (err) {
               console.error("[GITHUB] Failed to change reaction to 🛟:", err);
             }
           }
+
+          // Clear the pending ticket messages for this group
+          groupPending?.clear();
 
           if (statusMsg && statusMsg.key) {
             await Atlas.sendMessage(m.from, { delete: statusMsg.key }).catch(() => {});
@@ -1008,45 +998,55 @@ export default {
 
       case "ghcancel": {
         const draft = draftService.getDraft(groupJid);
-        if (!draft) {
+        const groupPending = (global as any).pendingTicketMessages?.get(groupJid);
+        const hasPending = groupPending && groupPending.size > 0;
+
+        if (!draft && !hasPending) {
           await doReact("❌");
-          return m.reply("❗ No active draft to cancel.");
+          return m.reply("❗ No active draft or pending reacted messages to cancel.");
         }
 
-        for (const msg of draft.messages) {
-          if (msg.type === 'image' && msg.imagePath) {
-            try {
-              if (fs.existsSync(msg.imagePath)) {
-                fs.unlinkSync(msg.imagePath);
-              }
-            } catch { }
-          }
-        }
-
-        // Delete "Draft Started" and all /ghadd messages on cancel
-        if (draft.draftStartedMsgKey) {
-          try {
-            await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
-          } catch (err) {
-            console.error("Failed to delete draft started message on cancel:", err);
-          }
-        }
-        if (isBotAdmin && draft.ghaddMsgKeys && draft.ghaddMsgKeys.length > 0) {
-          for (const key of draft.ghaddMsgKeys) {
-            try {
-              if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
-              (global as any).botDeletedMsgIds.add(key.id);
-              setTimeout(() => (global as any).botDeletedMsgIds?.delete(key.id), 300000);
-              await Atlas.sendMessage(m.from, { delete: key });
-            } catch (err) {
-              console.error("Failed to delete ghadd message on cancel:", err);
+        if (draft) {
+          for (const msg of draft.messages) {
+            if (msg.type === 'image' && msg.imagePath) {
+              try {
+                if (fs.existsSync(msg.imagePath)) {
+                  fs.unlinkSync(msg.imagePath);
+                }
+              } catch { }
             }
           }
+
+          // Delete "Draft Started" and all /ghadd messages on cancel
+          if (draft.draftStartedMsgKey) {
+            try {
+              await Atlas.sendMessage(m.from, { delete: draft.draftStartedMsgKey });
+            } catch (err) {
+              console.error("Failed to delete draft started message on cancel:", err);
+            }
+          }
+          if (isBotAdmin && draft.ghaddMsgKeys && draft.ghaddMsgKeys.length > 0) {
+            for (const key of draft.ghaddMsgKeys) {
+              try {
+                if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
+                (global as any).botDeletedMsgIds.add(key.id);
+                setTimeout(() => (global as any).botDeletedMsgIds?.delete(key.id), 300000);
+                await Atlas.sendMessage(m.from, { delete: key });
+              } catch (err) {
+                console.error("Failed to delete ghadd message on cancel:", err);
+              }
+            }
+          }
+
+          draftService.clearDraft(groupJid);
         }
 
-        draftService.clearDraft(groupJid);
+        if (hasPending) {
+          groupPending.clear();
+        }
+
         await doReact("❌");
-        await m.reply("❌ *Draft Cancelled*");
+        await m.reply("❌ *Draft and pending reacted messages cancelled.*");
         break;
       }
 
