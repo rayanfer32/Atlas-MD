@@ -1,106 +1,146 @@
-ᴋᴏɴɴɪᴄʜɪᴡᴀ Rayan ꜱᴇɴᴘᴀɪ 👋
-ɪ ᴀᴍ Atlas, ᴀ ᴡʜᴀᴛꜱᴀᴘᴘ ʙᴏᴛ
-ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ ᴛᴇᴀᴍ ᴀᴛʟᴀꜱ 🌸
+ᴋᴏɴɴɪᴄʜɪᴡᴀ *Rayan* ꜱᴇɴᴘᴀɪ 👋
+ɪ ᴀᴍ *Atlas*, ᴀ ᴡʜᴀᴛꜱᴀᴘᴘ ʙᴏᴛ
+ᴅᴇᴠᴇʟᴏᴘᴇᴅ ʙʏ *ᴛᴇᴀᴍ ᴀᴛʟᴀꜱ* 🌸
 
-🎀 ᴘʀᴇꜰɪx : -
-📦 ᴄᴏᴍᴍᴀɴᴅꜱ : 121 ᴀᴠᴀɪʟᴀʙʟᴇ
-🕐 ᴜᴘᴛɪᴍᴇ : 0h 4m 16s
+🎀 *ᴘʀᴇꜰɪx* : `/`
+📦 *ᴄᴏᴍᴍᴀɴᴅꜱ* : *194* ᴀᴠᴀɪʟᴀʙʟᴇ
+🕐 *ᴜᴘᴛɪᴍᴇ* : 0h 0m 42s
 
-╭─❖ ᴄᴏɴᴠᴇʀᴛᴇʀ ❖
-    ❯  -toimg, -togif, -tomp4
-    ❯  -tomp3, -toaudio, -tourl
-    ❯  -topdf, -toqr
+╭─❖ *ᴄᴏɴᴠᴇʀᴛᴇʀ* ❖
+    ❯  /toimg, /togif, /tomp4
+    ❯  /tomp3, /toaudio, /tourl
+    ❯  /topdf, /toqr
 ╰──────────────────
 
-╭─❖ ᴄᴏʀᴇ ❖
-    ❯  -script, -support, -help
-    ❯  -alive, -restart
+╭─❖ *ᴄᴏʀᴇ* ❖
+    ❯  /script, /support, /help
+    ❯  /alive, /restart, /getid
 ╰──────────────────
 
-╭─❖ ᴅᴏᴡɴʟᴏᴀᴅᴇʀ ❖
-    ❯  -download
+╭─❖ *ᴅᴏᴡɴʟᴏᴀᴅᴇʀ* ❖
+    ❯  /download
 ╰──────────────────
 
-╭─❖ ꜰᴜɴ & ᴍᴇᴅɪᴀ ❖
-    ❯  -truth, -dare, -coinflip
-    ❯  -dice, -fact
+╭─❖ *ꜰᴜɴ & ᴍᴇᴅɪᴀ* ❖
+    ❯  /truth, /dare, /coinflip
+    ❯  /dice, /fact
 ╰──────────────────
 
-╭─❖ ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ ❖
-    ❯  -admins, -setgcname, -delete
-    ❯  -demote, -gclink, -antilink
-    ❯  -welcome, -group, -gcinfo
-    ❯  -tagall, -hidetag, -leave
-    ❯  -promote, -remove, -revoke
-    ❯  -setgcdesc, -setppgc, -chatbotgc
-    ❯  -antidel
+╭─❖ *GITHUBPROJECTS.TS* ❖
+    ❯  /ghcreate, /ghadd, /ghdone
+    ❯  /ghcancel, /ghmove, /ghc
 ╰──────────────────
 
-╭─❖ ᴍᴏᴅᴇʀᴀᴛᴏʀ ❖
-    ❯  -addmod, -delmod, -mods
-    ❯  -ban, -unban, -banlist
-    ❯  -setchar, -pmchatbot, -bangroup
-    ❯  -unbangroup, -mode, -getcmd
-    ❯  -charlist
+╭─❖ *ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ* ❖
+    ❯  /admins, /setgcname, /delete
+    ❯  /demote, /gclink, /antilink
+    ❯  /welcome, /group, /gcinfo
+    ❯  /tagall, /hidetag, /leave
+    ❯  /promote, /remove, /revoke
+    ❯  /setgcdesc, /setppgc, /chatbotgc
+    ❯  /antidel
 ╰──────────────────
 
-╭─❖ ᴘɪᴄᴛᴜʀᴇꜱ ❖
-    ❯  -image, -couplepp, -gif
-    ❯  -pin
+╭─❖ *HOTWHEELS* ❖
+    ❯  /hotwheels, /hw
 ╰──────────────────
 
-╭─❖ ᴘʟᴜɢɪɴ ❖
-    ❯  -install, -uninstall, -plugins
-    ❯  -pluginlist
+╭─❖ *JIMMY.TS* ❖
+    ❯  /jim, /ai
 ╰──────────────────
 
-╭─❖ ʀᴇᴀᴄᴛɪᴏɴꜱ ❖
-    ❯  -bite, -blush, -bonk
-    ❯  -bully, -cringe, -cry
-    ❯  -cuddle, -dance, -glomp
-    ❯  -handhold, -happy, -highfive
-    ❯  -hug, -kick, -kill
-    ❯  -kiss, -lick, -nom
-    ❯  -pat, -poke, -slap
-    ❯  -smile, -smug, -wave
-    ❯  -wink, -yeet
+╭─❖ *KAMAVO-DAILY-WINS.TS* ❖
+    ❯  /winsreport, /dailywins
 ╰──────────────────
 
-╭─❖ ᴠɪᴇᴡ ᴏɴᴄᴇ ❖
-    ❯  -revive, -viewonce
+╭─❖ *ʟᴏɢᴏ ᴍᴀᴋᴇʀ* ❖
+    ❯  /3dchristmas, /3dneon, /3dspace
+    ❯  /3dstone, /bear, /blackpink
+    ❯  /blood, /bokeh, /candy
+    ❯  /carbon, /chocolate, /christmas
+    ❯  /circuit, /cloud, /deepsea
+    ❯  /demon, /dropwater, /glitch
+    ❯  /glitch2, /glitch3, /graffiti
+    ❯  /holographic, /joker, /lion
+    ❯  /magma, /matrix, /neon
+    ❯  /neondevil, /neongreen, /neonlight
+    ❯  /papercut, /pencil, /pornhub
+    ❯  /scifi, /sparklechristmas, /thunder
+    ❯  /thunder2, /transformer, /wall
+    ❯  /wolf, /fire, /ice
+    ❯  /gold, /silver, /galaxy
+    ❯  /rainbow, /cyber, /hacker
+    ❯  /dragon, /angel, /devil
+    ❯  /metal, /wood, /retro
+    ❯  /pixel, /anime, /gaming
+    ❯  /dark, /light, /abstract
 ╰──────────────────
 
-╭─❖ ꜱᴇᴀʀᴄʜ ❖
-    ❯  -google, -lyrics, -yts
-    ❯  -ringtone, -stickersearch, -weather
-    ❯  -github, -wallpaper, -wikipedia
+╭─❖ *ᴍᴏᴅᴇʀᴀᴛᴏʀ* ❖
+    ❯  /addmod, /delmod, /mods
+    ❯  /ban, /unban, /banlist
+    ❯  /setchar, /pmchatbot, /bangroup
+    ❯  /unbangroup, /mode, /getcmd
+    ❯  /charlist
 ╰──────────────────
 
-╭─❖ ꜱᴛɪᴄᴋᴇʀ ❖
-    ❯  -sticker, -steal, -scrop
-    ❯  -smeme, -stickermeme, -q
-    ❯  -emojimix
+╭─❖ *ᴘɪᴄᴛᴜʀᴇꜱ* ❖
+    ❯  /image, /couplepp, /gif
+    ❯  /pin
 ╰──────────────────
 
-╭─❖ TEXT-TO-SPEECH ❖
-    ❯  -say, -saybengali, -sayhindi
-    ❯  -sayjapanese, -saykorean, -saychinese
-    ❯  -sayindo
+╭─❖ *ᴘʟᴜɢɪɴ* ❖
+    ❯  /install, /uninstall, /plugins
+    ❯  /pluginlist
 ╰──────────────────
 
-╭─❖ ᴛɪᴋᴛᴏᴋ ᴅʟ ❖
-    ❯  -tiktok, -ttdl, -tt
+╭─❖ *ʀᴇᴀᴄᴛɪᴏɴꜱ* ❖
+    ❯  /bite, /blush, /bonk
+    ❯  /bully, /cringe, /cry
+    ❯  /cuddle, /dance, /glomp
+    ❯  /handhold, /happy, /highfive
+    ❯  /hug, /kick, /kill
+    ❯  /kiss, /lick, /nom
+    ❯  /pat, /poke, /slap
+    ❯  /smile, /smug, /wave
+    ❯  /wink, /yeet
 ╰──────────────────
 
-╭─❖ ᴛᴏᴏʟꜱ ❖
-    ❯  -upscale, -calc, -calculate
-    ❯  -exec, -gethtml
+╭─❖ *ᴠɪᴇᴡ ᴏɴᴄᴇ* ❖
+    ❯  /revive, /viewonce
 ╰──────────────────
 
-╭─❖ ʏᴏᴜᴛᴜʙᴇ ᴅʟ ❖
-    ❯  -play, -mp3, -mp4
+╭─❖ *ꜱᴇᴀʀᴄʜ* ❖
+    ❯  /google, /lyrics, /yts
+    ❯  /ringtone, /stickersearch, /weather
+    ❯  /github, /wallpaper, /wikipedia
 ╰──────────────────
 
-ꜱᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ: -support
+╭─❖ *ꜱᴛɪᴄᴋᴇʀ* ❖
+    ❯  /sticker, /steal, /scrop
+    ❯  /smeme, /stickermeme, /q
+    ❯  /emojimix
+╰──────────────────
 
-ᴘᴏᴡᴇʀᴇᴅ ʙʏ: © ᴛᴇᴀᴍ ᴀᴛʟᴀꜱ
+╭─❖ *TEXT-TO-SPEECH* ❖
+    ❯  /say, /saybengali, /sayhindi
+    ❯  /sayjapanese, /saykorean, /saychinese
+    ❯  /sayindo
+╰──────────────────
+
+╭─❖ *ᴛɪᴋᴛᴏᴋ ᴅʟ* ❖
+    ❯  /tiktok, /ttdl, /tt
+╰──────────────────
+
+╭─❖ *ᴛᴏᴏʟꜱ* ❖
+    ❯  /upscale, /calc, /calculate
+    ❯  /exec, /gethtml
+╰──────────────────
+
+╭─❖ *ʏᴏᴜᴛᴜʙᴇ ᴅʟ* ❖
+    ❯  /play, /mp3, /mp4
+╰──────────────────
+
+*ꜱᴜᴘᴘᴏʀᴛ ɢʀᴏᴜᴘ:* `/support`
+
+ᴘᴏᴡᴇʀᴇᴅ ʙʏ: © *ᴛᴇᴀᴍ ᴀᴛʟᴀꜱ*
