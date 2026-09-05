@@ -1,12 +1,11 @@
 import { Octokit } from "@octokit/rest";
-import { graphql } from "@octokit/graphql";
 import fs from "fs";
 import path from "path";
 import os from "os";
 import type { WAMessage, AtlasClient, QuotedMessage } from "../types/index.js";
 
 // ============================================================================
-// 1. Constants & Type Definitions
+// 1. Constants & Types
 // ============================================================================
 
 export const VALID_CATEGORIES = ['app', 'web', 'backend', 'admin'] as const;
@@ -68,20 +67,12 @@ export interface ProjectBoardData {
   items: ProjectBoardItem[];
 }
 
-type GraphQLClient = ReturnType<typeof graphql.defaults>;
-
-interface GitHubClients {
-  octokit: Octokit;
-  graphqlClient: GraphQLClient;
-}
-
 export interface CommandContext {
   Atlas: AtlasClient;
   m: WAMessage;
   groupJid: string;
   groupConfig: GitHubGroupConfig;
   octokit: Octokit;
-  graphqlClient: GraphQLClient;
   inputCMD: string;
   text: string;
   args: string[];
@@ -91,22 +82,19 @@ export interface CommandContext {
   isBotAdmin: boolean;
 }
 
-// GraphQL Response Interfaces
 interface GraphQLFieldOption {
   id: string;
   name: string;
 }
 
-interface GraphQLSingleSelectField {
-  id: string;
-  name: string;
-  options?: GraphQLFieldOption[];
-}
-
 interface GraphQLProjectFieldsResponse {
   node?: {
     fields?: {
-      nodes?: Array<GraphQLSingleSelectField | { id: string; name: string }>;
+      nodes?: Array<{
+        id: string;
+        name: string;
+        options?: GraphQLFieldOption[];
+      }>;
     };
   };
 }
@@ -178,55 +166,22 @@ interface GraphQLBoardResponse {
 }
 
 // ============================================================================
-// 2. In-Memory Draft State Management
+// 2. In-Memory State
 // ============================================================================
 
 const draftsByGroup = new Map<string, Draft>();
 const statusOptionMapCache = new Map<string, StatusOptionMap>();
 
-export const draftService = {
-  startDraft(groupJid: string, title: string, category: string, createdBy: string, createdByName: string): Draft {
-    const draft: Draft = {
-      title,
-      category,
-      createdBy,
-      createdByName,
-      messages: [],
-      createdAt: Date.now(),
-      ghaddMsgKeys: []
-    };
-    draftsByGroup.set(groupJid, draft);
-    return draft;
-  },
-  getDraft(groupJid: string): Draft | null {
-    return draftsByGroup.get(groupJid) ?? null;
-  },
-  addMessage(groupJid: string, message: DraftMessage): void {
-    const draft = draftsByGroup.get(groupJid);
-    if (!draft) {
-      throw new Error("No active draft");
-    }
-    draft.messages.push(message);
-  },
-  clearDraft(groupJid: string): void {
-    draftsByGroup.delete(groupJid);
-  },
-  hasDraft(groupJid: string): boolean {
-    return draftsByGroup.has(groupJid);
-  }
-};
-
 // ============================================================================
-// 3. Message & Media Cleanup Helpers
+// 3. Message & Media Utilities
 // ============================================================================
 
 function cleanupTempFile(filePath?: string): void {
-  if (!filePath) return;
-  try {
-    if (fs.existsSync(filePath)) {
+  if (filePath && fs.existsSync(filePath)) {
+    try {
       fs.unlinkSync(filePath);
-    }
-  } catch { }
+    } catch { }
+  }
 }
 
 function cleanupDraftMedia(draft: Draft): void {
@@ -277,10 +232,6 @@ async function cleanupDraftBotMessages(
   }
 }
 
-// ============================================================================
-// 4. Message Parsing, Unwrapping & Title Inference
-// ============================================================================
-
 function unwrapBaileysMessage(rawMessage: any): any {
   let message = rawMessage;
   while (
@@ -324,10 +275,8 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
   try {
     const message = unwrapBaileysMessage(msg.message);
 
-    // 1. Image message (with or without caption)
     if (message?.imageMessage) {
       const imgMsg = message.imageMessage;
-      const caption = imgMsg.caption || undefined;
       let imagePath: string | undefined;
 
       try {
@@ -343,9 +292,7 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
         );
 
         if (buffer && Buffer.isBuffer(buffer)) {
-          const tempDir = os.tmpdir();
-          const filename = `qa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`;
-          imagePath = path.join(tempDir, filename);
+          imagePath = path.join(os.tmpdir(), `qa-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.jpg`);
           fs.writeFileSync(imagePath, buffer);
         }
       } catch (err) {
@@ -357,13 +304,12 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
         senderName,
         senderNumber,
         type: 'image',
-        text: caption,
+        text: imgMsg.caption || undefined,
         imagePath,
         timestamp
       };
     }
 
-    // 2. Text message (conversation, extendedTextMessage, captions on documents/videos)
     let textContent =
       message.conversation ||
       message.extendedTextMessage?.text ||
@@ -395,12 +341,47 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
   return null;
 }
 
+async function extractQuotedMessage(quoted: QuotedMessage): Promise<DraftMessage | null> {
+  const senderId = quoted.sender || 'unknown';
+  const senderName = quoted.sender?.split('@')[0] || 'Unknown';
+  const senderNumber = senderId.split('@')[0] || senderId;
+  const messageId = quoted.id || `msg-${Date.now()}`;
+  const timestamp = Date.now();
+
+  if (quoted.type === "conversation" || quoted.type === "extendedTextMessage") {
+    return {
+      messageId,
+      senderName,
+      senderNumber,
+      type: 'text',
+      text: quoted.text || '',
+      timestamp
+    };
+  }
+
+  if (quoted.type === "imageMessage") {
+    if (!quoted.download) throw new Error("No download method on quoted message");
+    const buffer = await quoted.download();
+    const imagePath = path.join(os.tmpdir(), `qa-${Date.now()}.jpg`);
+    fs.writeFileSync(imagePath, buffer);
+
+    return {
+      messageId,
+      senderName,
+      senderNumber,
+      type: 'image',
+      text: quoted.caption || undefined,
+      imagePath,
+      timestamp
+    };
+  }
+
+  return null;
+}
+
 async function inferTitle(messages: DraftMessage[]): Promise<string> {
   const textParts = messages
-    .map((m, idx) => {
-      const content = m.text ? m.text : (m.type === 'image' ? '[Image Attachment]' : '');
-      return `Message ${idx + 1} (${m.senderName}): ${content}`;
-    })
+    .map((m, idx) => `Message ${idx + 1} (${m.senderName}): ${m.text || (m.type === 'image' ? '[Image Attachment]' : '')}`)
     .filter(Boolean)
     .join("\n");
 
@@ -417,15 +398,12 @@ async function inferTitle(messages: DraftMessage[]): Promise<string> {
       });
 
       const title = response.text?.trim()?.replace(/^["']|["']$/g, '');
-      if (title && title.length > 0) {
-        return title;
-      }
+      if (title) return title;
     } catch (err: any) {
       console.error("[GITHUB] Error generating title with Gemini:", err?.message || err);
     }
   }
 
-  // Fallback: use first non-empty text message
   for (const m of messages) {
     if (m.text && m.text.trim()) {
       const firstLine = m.text.trim().split("\n")[0].trim();
@@ -437,53 +415,25 @@ async function inferTitle(messages: DraftMessage[]): Promise<string> {
 }
 
 function extractIssueNumber(text: string): number | null {
-  const ghMatch = text.match(/GH-(\d+)/i);
-  if (ghMatch) return parseInt(ghMatch[1], 10);
-
-  const hashMatch = text.match(/#(\d+)/);
-  if (hashMatch) return parseInt(hashMatch[1], 10);
-
-  return null;
-}
-
-function matchUser(userA: string, userB: string): boolean {
-  if (!userA || !userB) return false;
-  if (userA === userB) return true;
-
-  const cleanA = userA.split('@')[0];
-  const cleanB = userB.split('@')[0];
-  if (cleanA === cleanB) return true;
-
-  const lidMap = (global as any).lidToJidMap as Map<string, string> | undefined;
-  if (lidMap) {
-    if (lidMap.get(userA) === userB || lidMap.get(userB) === userA) return true;
-    const mappedA = lidMap.get(userA);
-    if (mappedA && mappedA.split('@')[0] === cleanB) return true;
-    const mappedB = lidMap.get(userB);
-    if (mappedB && mappedB.split('@')[0] === cleanA) return true;
-  }
-
-  return false;
+  const match = text.match(/GH-(\d+)/i) || text.match(/#(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
 }
 
 // ============================================================================
-// 5. Configuration Management
+// 4. Configuration Management
 // ============================================================================
 
 function getGroupConfig(groupJid: string): GitHubGroupConfig | null {
   if (process.env.GITHUB_PROJECTS_MAPPING) {
     try {
       const mapping: Record<string, GitHubGroupConfig> = JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
-      if (mapping[groupJid]) {
-        return mapping[groupJid];
-      }
-    } catch (err) {
-      console.error("[GITHUB] Error parsing GITHUB_PROJECTS_MAPPING:", err);
+      if (mapping[groupJid]) return mapping[groupJid];
+    } catch (err: any) {
+      console.error("[GITHUB] Error parsing GITHUB_PROJECTS_MAPPING:", err?.message || err);
     }
     return null;
   }
 
-  // Fallback to legacy single project env vars if mapping is not configured
   if (
     process.env.GITHUB_OWNER &&
     process.env.GITHUB_REPO &&
@@ -502,45 +452,8 @@ function getGroupConfig(groupJid: string): GitHubGroupConfig | null {
   return null;
 }
 
-function checkConfig(): void {
-  if (!process.env.GITHUB_TOKEN) {
-    throw new Error("Missing required GitHub environment variable: GITHUB_TOKEN");
-  }
-
-  if (process.env.GITHUB_PROJECTS_MAPPING) {
-    try {
-      JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
-    } catch (err: any) {
-      throw new Error(`Invalid JSON in GITHUB_PROJECTS_MAPPING: ${err.message}`);
-    }
-    return;
-  }
-
-  const required = [
-    'GITHUB_OWNER',
-    'GITHUB_REPO',
-    'GITHUB_PROJECT_ID',
-    'GITHUB_STATUS_FIELD_ID'
-  ];
-  const missing = required.filter(k => !process.env[k]);
-  if (missing.length > 0) {
-    throw new Error(`Missing required GitHub environment variable(s): ${missing.join(', ')} (or configure GITHUB_PROJECTS_MAPPING)`);
-  }
-}
-
-function createGitHubClients(groupConfig: GitHubGroupConfig): GitHubClients {
-  const token = groupConfig.token || process.env.GITHUB_TOKEN;
-  const octokit = new Octokit({ auth: token });
-  const graphqlClient = graphql.defaults({
-    headers: {
-      authorization: `token ${token}`,
-    },
-  });
-  return { octokit, graphqlClient };
-}
-
 // ============================================================================
-// 6. Formatting & Markdown Utilities
+// 5. Formatting Utilities
 // ============================================================================
 
 function formatTimestamp(ts: number | string): string {
@@ -548,25 +461,19 @@ function formatTimestamp(ts: number | string): string {
 }
 
 function formatMessage(msg: DraftMessage, index: number): string {
-  const lines: string[] = [];
-  lines.push(`### Message ${index + 1}`);
-  lines.push('');
-  lines.push(
-    `**From:** ${msg.senderName} (\`${msg.senderNumber}\`) — ${formatTimestamp(msg.timestamp)}`
-  );
-  lines.push('');
+  const lines: string[] = [
+    `### Message ${index + 1}`,
+    '',
+    `**From:** ${msg.senderName} (\`${msg.senderNumber}\`) — ${formatTimestamp(msg.timestamp)}`,
+    ''
+  ];
 
   if (msg.type === 'text' && msg.text) {
     lines.push(msg.text);
   } else if (msg.type === 'image') {
-    if (msg.imagePath) {
-      lines.push(`![attachment](${msg.imagePath})`);
-    } else {
-      lines.push('_[Image attachment — upload failed]_');
-    }
+    lines.push(msg.imagePath ? `![attachment](${msg.imagePath})` : '_[Image attachment — upload failed]_');
     if (msg.text) {
-      lines.push('');
-      lines.push(msg.text);
+      lines.push('', msg.text);
     }
   }
 
@@ -574,61 +481,44 @@ function formatMessage(msg: DraftMessage, index: number): string {
 }
 
 function buildIssueBody(draft: Draft): string {
-  const sections: string[] = [];
-
-  sections.push('## Summary');
-  sections.push('');
-  sections.push(draft.title);
-  sections.push('');
-  sections.push('---');
-  sections.push('');
-  sections.push('## Reported By');
-  sections.push('');
-  sections.push(`${draft.createdByName}`);
-  sections.push('');
-  sections.push('---');
+  const sections: string[] = [
+    '## Summary',
+    '',
+    draft.title,
+    '',
+    '---',
+    '',
+    '## Reported By',
+    '',
+    draft.createdByName,
+    '',
+    '---'
+  ];
 
   if (draft.messages.length > 0) {
-    sections.push('');
-    sections.push('## Messages');
-    sections.push('');
-
+    sections.push('', '## Messages', '');
     for (let i = 0; i < draft.messages.length; i++) {
-      sections.push(formatMessage(draft.messages[i], i));
-      sections.push('');
+      sections.push(formatMessage(draft.messages[i], i), '');
     }
-
     sections.push('---');
   }
 
-  const imageMessages = draft.messages.filter(
-    (m: DraftMessage) => m.type === 'image' && m.imagePath
-  );
+  const imageMessages = draft.messages.filter(m => m.type === 'image' && m.imagePath);
   if (imageMessages.length > 0) {
-    sections.push('');
-    sections.push('## Attachments');
-    sections.push('');
+    sections.push('', '## Attachments', '');
     for (const img of imageMessages) {
-      const filename = img.imagePath?.split('/').pop() ?? 'attachment';
-      sections.push(`* ${filename}`);
+      sections.push(`* ${img.imagePath?.split('/').pop() ?? 'attachment'}`);
     }
-    sections.push('');
-    sections.push('---');
+    sections.push('', '---');
   }
 
-  sections.push('');
-  sections.push('## Source');
-  sections.push('');
-  sections.push('WhatsApp QA Group');
-  sections.push('');
-
+  sections.push('', '## Source', '', 'WhatsApp QA Group', '');
   return sections.join('\n');
 }
 
-function renderProgressBar(percentage: number, length: number = 10): string {
+function renderProgressBar(percentage: number, length = 10): string {
   const filled = Math.min(length, Math.max(0, Math.round((percentage / 100) * length)));
-  const empty = length - filled;
-  return '█'.repeat(filled) + '░'.repeat(empty);
+  return '█'.repeat(filled) + '░'.repeat(length - filled);
 }
 
 function getColumnEmoji(columnName: string): string {
@@ -649,62 +539,40 @@ function findMatchingColumn(
   const q = clean(query);
   if (!q) return null;
 
-  const exact = columns.find(c => clean(c.name) === q);
-  if (exact) return exact;
-
-  const sub = columns.find(c => clean(c.name).includes(q) || q.includes(clean(c.name)));
-  if (sub) return sub;
-
-  if (q.includes('rev') || q.includes('qa') || q.includes('test')) {
-    const rev = columns.find(c => /review|qa|test/i.test(c.name));
-    if (rev) return rev;
-  }
-  if (q.includes('prog') || q.includes('do') || q.includes('wip')) {
-    const prog = columns.find(c => /progress|doing|wip/i.test(c.name));
-    if (prog) return prog;
-  }
-  if (q.includes('todo') || q.includes('backlog')) {
-    const todo = columns.find(c => /todo|to do|backlog/i.test(c.name));
-    if (todo) return todo;
-  }
-  if (q.includes('done') || q.includes('close') || q.includes('finish') || q.includes('comp')) {
-    const done = columns.find(c => /done|closed|complete/i.test(c.name));
-    if (done) return done;
-  }
-
-  return null;
+  return columns.find(c => clean(c.name) === q)
+    || columns.find(c => clean(c.name).includes(q) || q.includes(clean(c.name)))
+    || columns.find(c => {
+      if (/rev|qa|test/.test(q)) return /review|qa|test/i.test(c.name);
+      if (/prog|do|wip/.test(q)) return /progress|doing|wip/i.test(c.name);
+      if (/todo|backlog/.test(q)) return /todo|to do|backlog/i.test(c.name);
+      if (/done|close|finish|comp/.test(q)) return /done|closed|complete/i.test(c.name);
+      return false;
+    })
+    || null;
 }
 
-function formatBoardItemLine(item: ProjectBoardItem, maxLen: number = 80): string {
-  let title = item.title;
-  if (title.length > maxLen) {
-    title = title.slice(0, maxLen - 3) + '...';
-  }
-  if (item.type === 'issue') {
-    return `• #${item.number} ${title}`;
-  } else if (item.type === 'pr') {
-    return `• 🔀 #${item.number} ${title}`;
-  } else {
-    return `• 📝 ${title}`;
-  }
+function getItemBadge(item: ProjectBoardItem, bold = false): string {
+  const num = bold ? `*#${item.number}*` : `#${item.number}`;
+  if (item.type === 'issue') return num;
+  if (item.type === 'pr') return `🔀 ${num}`;
+  return '📝';
+}
+
+function formatBoardItemLine(item: ProjectBoardItem, maxLen = 80): string {
+  const title = item.title.length > maxLen ? item.title.slice(0, maxLen - 3) + '...' : item.title;
+  return `• ${getItemBadge(item)} ${title}`;
 }
 
 function formatColumnItemLine(item: ProjectBoardItem, index: number): string {
-  if (item.type === 'issue') {
-    return `${index + 1}. *#${item.number}* ${item.title}`;
-  } else if (item.type === 'pr') {
-    return `${index + 1}. 🔀 *#${item.number}* ${item.title}`;
-  } else {
-    return `${index + 1}. 📝 ${item.title}`;
-  }
+  return `${index + 1}. ${getItemBadge(item, true)} ${item.title}`;
 }
 
 // ============================================================================
-// 7. GitHub API Operations
+// 6. GitHub API Operations
 // ============================================================================
 
 async function fetchStatusOptions(
-  graphqlClient: GraphQLClient,
+  octokit: Octokit,
   projectId: string,
   statusFieldId: string
 ): Promise<StatusOptionMap> {
@@ -735,19 +603,12 @@ async function fetchStatusOptions(
     }
   `;
 
-  const result: GraphQLProjectFieldsResponse = await graphqlClient(query, {
-    projectId,
-  });
-
+  const result: GraphQLProjectFieldsResponse = await octokit.graphql(query, { projectId });
   const fields = result.node?.fields?.nodes ?? [];
-  const statusField = fields.find(
-    (f: any) => f?.id === statusFieldId
-  ) as GraphQLSingleSelectField | undefined;
+  const statusField = fields.find(f => f?.id === statusFieldId);
 
   if (!statusField) {
-    throw new Error(
-      `Status field with ID "${statusFieldId}" not found in project fields.`
-    );
+    throw new Error(`Status field with ID "${statusFieldId}" not found in project fields.`);
   }
 
   const options: Record<string, string> = {};
@@ -772,7 +633,6 @@ async function fetchStatusOptions(
   };
 
   statusOptionMapCache.set(projectId, map);
-  console.log(`[GITHUB] Status options loaded for ${projectId}:`, map);
   return map;
 }
 
@@ -841,7 +701,7 @@ async function createIssue(
 }
 
 async function addIssueToProject(
-  graphqlClient: GraphQLClient,
+  octokit: Octokit,
   projectId: string,
   issueNodeId: string
 ): Promise<{ itemId: string }> {
@@ -858,7 +718,7 @@ async function addIssueToProject(
     }
   `;
 
-  const result: GraphQLAddItemResponse = await graphqlClient(mutation, {
+  const result: GraphQLAddItemResponse = await octokit.graphql(mutation, {
     projectId,
     contentId: issueNodeId,
   });
@@ -870,13 +730,13 @@ async function addIssueToProject(
 }
 
 async function setProjectItemStatus(
-  graphqlClient: GraphQLClient,
+  octokit: Octokit,
   projectId: string,
   statusFieldId: string,
   itemId: string,
   status: TicketStatus
 ): Promise<void> {
-  const statusOptions = await fetchStatusOptions(graphqlClient, projectId, statusFieldId);
+  const statusOptions = await fetchStatusOptions(octokit, projectId, statusFieldId);
   const optionId = statusOptions[status];
 
   if (!optionId) {
@@ -903,7 +763,7 @@ async function setProjectItemStatus(
     }
   `;
 
-  await graphqlClient(mutation, {
+  await octokit.graphql(mutation, {
     projectId,
     itemId,
     fieldId: statusFieldId,
@@ -912,7 +772,7 @@ async function setProjectItemStatus(
 }
 
 async function findProjectItemByIssueNumber(
-  graphqlClient: GraphQLClient,
+  octokit: Octokit,
   projectId: string,
   issueNumber: number
 ): Promise<string | null> {
@@ -943,7 +803,7 @@ async function findProjectItemByIssueNumber(
   let hasNextPage = true;
 
   while (hasNextPage) {
-    const result: GraphQLFindItemResponse = await graphqlClient(query, {
+    const result: GraphQLFindItemResponse = await octokit.graphql(query, {
       projectId,
       after,
     });
@@ -963,7 +823,7 @@ async function findProjectItemByIssueNumber(
 }
 
 async function fetchProjectBoard(
-  graphqlClient: GraphQLClient,
+  octokit: Octokit,
   projectId: string,
   statusFieldId: string
 ): Promise<ProjectBoardData> {
@@ -1040,7 +900,7 @@ async function fetchProjectBoard(
   let pageCount = 0;
   while (hasNextPage && pageCount < 10) {
     pageCount++;
-    const res: GraphQLBoardResponse = await graphqlClient(query, { projectId, after });
+    const res: GraphQLBoardResponse = await octokit.graphql(query, { projectId, after });
     const projectNode = res.node;
     if (!projectNode) {
       throw new Error(`GitHub Project with ID "${projectId}" not found.`);
@@ -1052,13 +912,13 @@ async function fetchProjectBoard(
     }
 
     if (columns.length === 0) {
-      const fields: any[] = projectNode.fields?.nodes ?? [];
-      let statusField = fields.find((f: any) => f?.id === statusFieldId);
+      const fields = projectNode.fields?.nodes ?? [];
+      let statusField = fields.find(f => f?.id === statusFieldId);
       if (!statusField) {
-        statusField = fields.find((f: any) => /status/i.test(f?.name) && f?.options);
+        statusField = fields.find(f => /status/i.test(f?.name) && f?.options);
       }
       if (statusField && statusField.options) {
-        columns = statusField.options.map((opt: any) => ({
+        columns = statusField.options.map(opt => ({
           id: opt.id,
           name: opt.name,
         }));
@@ -1070,7 +930,7 @@ async function fetchProjectBoard(
       if (node.isArchived) continue;
 
       const fvNodes = node.fieldValues?.nodes ?? [];
-      const statusVal = fvNodes.find((fv: any) => fv?.field?.id === statusFieldId);
+      const statusVal = fvNodes.find(fv => fv?.field?.id === statusFieldId);
       const statusName = statusVal?.name || "No Status";
 
       let type: 'issue' | 'pr' | 'draft' = 'draft';
@@ -1117,11 +977,11 @@ async function fetchProjectBoard(
 }
 
 // ============================================================================
-// 8. Individual Command Handlers
+// 7. Command Handlers
 // ============================================================================
 
 async function handleGhc(ctx: CommandContext): Promise<void> {
-  const { Atlas, m, groupJid, groupConfig, octokit, graphqlClient, args, prefix, doReact } = ctx;
+  const { Atlas, m, groupJid, groupConfig, octokit, args, prefix, doReact } = ctx;
 
   const category = args[0] ? args[0].toLowerCase().trim() : "app";
   if (!VALID_CATEGORIES.includes(category as TicketCategory)) {
@@ -1148,7 +1008,6 @@ async function handleGhc(ctx: CommandContext): Promise<void> {
     return;
   }
 
-  // Sort messages in chronological order
   matchingItems.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
   await doReact("⏳");
@@ -1198,28 +1057,18 @@ async function handleGhc(ctx: CommandContext): Promise<void> {
 
   try {
     const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo);
-    const projectItem = await addIssueToProject(graphqlClient, groupConfig.projectId, issue.nodeId);
-    await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
+    const projectItem = await addIssueToProject(octokit, groupConfig.projectId, issue.nodeId);
+    await setProjectItemStatus(octokit, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
 
-    cleanupDraftMedia(draft);
-
-    // Change reaction on the messages to 🛟
     for (const item of matchingItems) {
       try {
-        await Atlas.sendMessage(m.from, {
-          react: {
-            text: "🛟",
-            key: item.key
-          }
-        });
+        await Atlas.sendMessage(m.from, { react: { text: "🛟", key: item.key } });
       } catch (err) {
         console.error("[GITHUB] Failed to change reaction to 🛟:", err);
       }
     }
 
-    // Clear the pending ticket messages for this group
     groupPending?.clear();
-
     await safeDeleteMessage(Atlas, m.from, statusMsg?.key);
 
     await doReact("✅");
@@ -1268,13 +1117,22 @@ async function handleGhCreate(ctx: CommandContext): Promise<void> {
   const senderId = m.sender || 'unknown';
   const senderName = m.pushName || senderId.split('@')[0] || 'Unknown';
 
-  const previousDraft = draftService.getDraft(groupJid);
+  const previousDraft = draftsByGroup.get(groupJid);
   if (previousDraft) {
     await cleanupDraftBotMessages(Atlas, m.from, previousDraft, isBotAdmin);
   }
 
-  const hadPrevious = draftService.hasDraft(groupJid);
-  const draft = draftService.startDraft(groupJid, title, category, senderId, senderName);
+  const hadPrevious = draftsByGroup.has(groupJid);
+  const draft: Draft = {
+    title,
+    category,
+    createdBy: senderId,
+    createdByName: senderName,
+    messages: [],
+    createdAt: Date.now(),
+    ghaddMsgKeys: []
+  };
+  draftsByGroup.set(groupJid, draft);
 
   const warning = hadPrevious ? '\n\n_Previous draft was cancelled._' : '';
 
@@ -1295,7 +1153,7 @@ async function handleGhCreate(ctx: CommandContext): Promise<void> {
 async function handleGhAdd(ctx: CommandContext): Promise<void> {
   const { m, groupJid, prefix, doReact } = ctx;
 
-  const draft = draftService.getDraft(groupJid);
+  const draft = draftsByGroup.get(groupJid);
   if (!draft) {
     await doReact("❌");
     await m.reply(`❗ No active draft. Start one with:\n\`${prefix}ghcreate <category>: <title>\``);
@@ -1308,68 +1166,29 @@ async function handleGhAdd(ctx: CommandContext): Promise<void> {
     return;
   }
 
-  const senderId = m.quoted?.sender || 'unknown';
-  const senderName = m.quoted?.sender?.split('@')[0] || 'Unknown';
-  const senderNumber = senderId.split('@')[0] || senderId;
-  const messageId = m.quoted?.id || `msg-${Date.now()}`;
-  const timestamp = Date.now();
-  const mtype = m.quoted?.type;
-
-  if (mtype === "conversation" || mtype === "extendedTextMessage") {
-    const collected: DraftMessage = {
-      messageId,
-      senderName,
-      senderNumber,
-      type: 'text',
-      text: m.quoted.text || '',
-      timestamp
-    };
-    draftService.addMessage(groupJid, collected);
-    await doReact("✅");
-    if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
-    draft.ghaddMsgKeys.push(m.key);
-  } else if (mtype === "imageMessage") {
-    const caption = m.quoted.caption || undefined;
-    await doReact("⏳");
-
-    try {
-      if (!m.quoted.download) {
-        throw new Error("No download method available on quoted message");
-      }
-      const buffer = await m.quoted.download();
-      const tempDir = os.tmpdir();
-      const filename = `qa-${Date.now()}.jpg`;
-      const imagePath = path.join(tempDir, filename);
-      fs.writeFileSync(imagePath, buffer);
-
-      const collected: DraftMessage = {
-        messageId,
-        senderName,
-        senderNumber,
-        type: 'image',
-        text: caption,
-        imagePath,
-        timestamp
-      };
-      draftService.addMessage(groupJid, collected);
-      await doReact("🖼️");
-      if (!draft.ghaddMsgKeys) draft.ghaddMsgKeys = [];
-      draft.ghaddMsgKeys.push(m.key);
-    } catch (err: any) {
-      console.error("Failed to download image:", err);
-      await doReact("❌");
-      await m.reply("❗ Failed to download the image. Please try again.");
+  try {
+    const collected = await extractQuotedMessage(m.quoted);
+    if (!collected) {
+      await doReact("⚠️");
+      await m.reply("⚠️ Unsupported message type. Only text and images can be added.");
+      return;
     }
-  } else {
-    await doReact("⚠️");
-    await m.reply("⚠️ Unsupported message type. Only text and images can be added.");
+
+    draft.messages.push(collected);
+    draft.ghaddMsgKeys = draft.ghaddMsgKeys || [];
+    draft.ghaddMsgKeys.push(m.key);
+    await doReact(collected.type === 'image' ? "🖼️" : "✅");
+  } catch (err: any) {
+    console.error("Failed to add message to draft:", err);
+    await doReact("❌");
+    await m.reply(`❗ Failed to process attachment: ${err.message}`);
   }
 }
 
 async function handleGhDone(ctx: CommandContext): Promise<void> {
-  const { Atlas, m, groupJid, groupConfig, octokit, graphqlClient, prefix, doReact, isBotAdmin } = ctx;
+  const { Atlas, m, groupJid, groupConfig, octokit, prefix, doReact, isBotAdmin } = ctx;
 
-  const draft = draftService.getDraft(groupJid);
+  const draft = draftsByGroup.get(groupJid);
   if (!draft) {
     await doReact("❌");
     await m.reply(`❗ No active draft. Start one with:\n\`${prefix}ghcreate <category>: <title>\``);
@@ -1381,14 +1200,13 @@ async function handleGhDone(ctx: CommandContext): Promise<void> {
 
   try {
     const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo);
-    const projectItem = await addIssueToProject(graphqlClient, groupConfig.projectId, issue.nodeId);
-    await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
+    const projectItem = await addIssueToProject(octokit, groupConfig.projectId, issue.nodeId);
+    await setProjectItemStatus(octokit, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
 
-    cleanupDraftMedia(draft);
     await cleanupDraftBotMessages(Atlas, m.from, draft, isBotAdmin);
     await safeDeleteMessage(Atlas, m.from, creatingMsg?.key);
 
-    draftService.clearDraft(groupJid);
+    draftsByGroup.delete(groupJid);
 
     await doReact("✅");
     await m.reply(
@@ -1408,7 +1226,7 @@ async function handleGhDone(ctx: CommandContext): Promise<void> {
 async function handleGhCancel(ctx: CommandContext): Promise<void> {
   const { Atlas, m, groupJid, doReact, isBotAdmin } = ctx;
 
-  const draft = draftService.getDraft(groupJid);
+  const draft = draftsByGroup.get(groupJid);
   const groupPending = (global as any).pendingTicketMessages?.get(groupJid);
   const hasPending = groupPending && groupPending.size > 0;
 
@@ -1421,7 +1239,7 @@ async function handleGhCancel(ctx: CommandContext): Promise<void> {
   if (draft) {
     cleanupDraftMedia(draft);
     await cleanupDraftBotMessages(Atlas, m.from, draft, isBotAdmin);
-    draftService.clearDraft(groupJid);
+    draftsByGroup.delete(groupJid);
   }
 
   if (hasPending) {
@@ -1433,7 +1251,7 @@ async function handleGhCancel(ctx: CommandContext): Promise<void> {
 }
 
 async function handleGhMove(ctx: CommandContext): Promise<void> {
-  const { m, groupConfig, graphqlClient, text, prefix, doReact } = ctx;
+  const { m, groupConfig, octokit, text, prefix, doReact } = ctx;
 
   if (!m.quoted) {
     await doReact("❌");
@@ -1460,7 +1278,7 @@ async function handleGhMove(ctx: CommandContext): Promise<void> {
   await doReact("⏳");
 
   try {
-    const itemId = await findProjectItemByIssueNumber(graphqlClient, groupConfig.projectId, issueNumber);
+    const itemId = await findProjectItemByIssueNumber(octokit, groupConfig.projectId, issueNumber);
 
     if (!itemId) {
       await doReact("❌");
@@ -1468,7 +1286,7 @@ async function handleGhMove(ctx: CommandContext): Promise<void> {
       return;
     }
 
-    await setProjectItemStatus(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId, itemId, status);
+    await setProjectItemStatus(octokit, groupConfig.projectId, groupConfig.statusFieldId, itemId, status);
 
     const statusNames: Record<TicketStatus, string> = {
       todo: 'Todo',
@@ -1487,12 +1305,12 @@ async function handleGhMove(ctx: CommandContext): Promise<void> {
 }
 
 async function handleGhBoard(ctx: CommandContext): Promise<void> {
-  const { m, groupConfig, graphqlClient, text, prefix, doReact } = ctx;
+  const { m, groupConfig, octokit, text, prefix, doReact } = ctx;
 
   await doReact("⏳");
 
   try {
-    const boardData = await fetchProjectBoard(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId);
+    const boardData = await fetchProjectBoard(octokit, groupConfig.projectId, groupConfig.statusFieldId);
 
     const itemsByStatus = new Map<string, ProjectBoardItem[]>();
     for (const col of boardData.columns) {
@@ -1510,7 +1328,6 @@ async function handleGhBoard(ctx: CommandContext): Promise<void> {
 
     const filterArg = text.trim();
 
-    // 1. Single Column Inspection (/ghboard [column])
     if (filterArg) {
       const targetCol = findMatchingColumn(boardData.columns, filterArg);
       if (!targetCol) {
@@ -1555,7 +1372,6 @@ async function handleGhBoard(ctx: CommandContext): Promise<void> {
       return;
     }
 
-    // 2. Full Board Overview & Sneak Peek (/ghboard)
     const doneCol = boardData.columns.find(c => /done|closed|complete/i.test(c.name));
     const doneCount = doneCol ? (itemsByStatus.get(doneCol.name)?.length || 0) : 0;
     const totalCount = boardData.items.length;
@@ -1629,13 +1445,15 @@ async function handleGhBoard(ctx: CommandContext): Promise<void> {
 }
 
 // ============================================================================
-// 9. Export Plugin Definition & Dispatcher
+// 8. Plugin Definition & Dispatcher
 // ============================================================================
+
+const COMMANDS = ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"];
 
 export default {
   name: "githubprojects",
-  alias: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"],
-  uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"],
+  alias: COMMANDS,
+  uniquecommands: COMMANDS,
   description: "GitHub Projects ticketing system inside WhatsApp group chats",
   start: async (
     Atlas: AtlasClient,
@@ -1650,29 +1468,26 @@ export default {
       isBotAdmin: boolean;
     }
   ) => {
-    // Restrict to Group Chats
     if (!m.isGroup) {
       await doReact("❌");
       return m.reply("❗ This command can only be used in group chats.");
     }
 
-    // Validate environment variables
-    try {
-      checkConfig();
-    } catch (e: any) {
-      await doReact("⚠️");
-      return m.reply(`❌ Configuration Error:\n\n${e.message}\n\nPlease add the missing environment variables to your .env file.`);
-    }
-
     const groupJid = m.from;
     const groupConfig = getGroupConfig(groupJid);
+    const token = groupConfig?.token || process.env.GITHUB_TOKEN;
+
+    if (!token) {
+      await doReact("⚠️");
+      return m.reply("❌ Missing GitHub token. Please configure GITHUB_TOKEN in your .env file or group mapping.");
+    }
+
     if (!groupConfig || !groupConfig.owner || !groupConfig.repo || !groupConfig.projectId || !groupConfig.statusFieldId) {
       await doReact("❌");
       return m.reply("❗ This WhatsApp group is not configured for GitHub projects.");
     }
 
-    // Initialize Octokit and GraphQL Clients
-    const { octokit, graphqlClient } = createGitHubClients(groupConfig);
+    const octokit = new Octokit({ auth: token });
 
     const ctx: CommandContext = {
       Atlas,
@@ -1680,7 +1495,6 @@ export default {
       groupJid,
       groupConfig,
       octokit,
-      graphqlClient,
       inputCMD,
       text,
       args,
