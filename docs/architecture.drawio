@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mxfile host="drawio" version="26.0.0">
+  <diagram name="Atlas-MD Architecture" id="atlas-arch-v4">
+    <mxGraphModel dx="1800" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1860" pageHeight="1120" background="#f8fafc">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title_banner" value="Atlas-MD v4.1.0 — System Architecture &amp; Component Topology
+Modular WhatsApp Multi-Device Automation Bot • Express Web Dashboard • Dynamic Plugin Engine • AI Persona Integration" style="text;html=0;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=1;fillColor=#ffffff;strokeColor=#cbd5e1;strokeWidth=1.5;spacingLeft=16;shadow=1;fontFamily=Helvetica;fontSize=12;fontStyle=1;fontColor=#1e293b;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1770" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_clients" value="1. Clients &amp; Ingress Triggers" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#94a3b8;fillColor=#1e293b;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#f8fafc;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="40" y="90" width="260" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_core" value="2. Ingress &amp; Core Connection" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#93c5fd;fillColor=#1e40af;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#f0f7ff;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="330" y="90" width="290" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_pipeline" value="3. Message Pipeline &amp; Security" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#fcd34d;fillColor=#b45309;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#fffdf5;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="650" y="90" width="330" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_plugins" value="4. Modular Plugin Subsystems" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#d8b4fe;fillColor=#6b21a8;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#faf5ff;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="90" width="380" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_external" value="5. External AI &amp; Cloud APIs" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#fdba74;fillColor=#c2410c;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#fffaf5;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="1420" y="90" width="390" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="c_persist" value="6. Persistence &amp; State Storage Tier (Shared Foundation)" style="swimlane;startSize=32;fontFamily=Helvetica;fontSize=12;fontStyle=1;strokeColor=#86efac;fillColor=#166534;fontColor=#ffffff;strokeWidth=2;swimlaneFillColor=#f0fdf4;rounded=1;shadow=1;container=1;collapsible=0;" vertex="1" parent="1">
+          <mxGeometry x="330" y="600" width="1480" height="480" as="geometry"/>
+        </mxCell>
+        <mxCell id="wa_client" value="WhatsApp MD Network
+[Users, Groups &amp; Channels]
+Multi-Device Encrypted WSS" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_clients">
+          <mxGeometry x="20" y="50" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="web_gui" value="Admin Web Dashboard
+[Browser HTML/CSS GUI]
+Live Status &amp; QR Viewer" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_clients">
+          <mxGeometry x="20" y="155" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="webhook_caller" value="External Webhook Caller
+[Metrics &amp; Alert Services]
+Bearer Secret Auth Header" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_clients">
+          <mxGeometry x="20" y="260" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="process_mgr" value="Process Supervisor
+[PM2 / Docker / OS Signals]
+Heap Limit Cap &amp; atlas.pid" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f1f5f9;strokeColor=#94a3b8;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_clients">
+          <mxGeometry x="20" y="365" width="220" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="express_server" value="Express HTTP Server
+[:8000 / REST APIs]
+Static UI, Pairing Code &amp; Webhook" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#e0f2fe;strokeColor=#38bdf8;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_core">
+          <mxGeometry x="20" y="50" width="250" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="schedulers" value="Schedulers &amp; Maintenance
+[Forced V8 GC &amp; Sleep Mode]
+Off-Hours Auto Disconnect" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dbeafe;strokeColor=#60a5fa;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_core">
+          <mxGeometry x="20" y="155" width="250" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="watchdog" value="Connection Watchdog
+[Keepalive Ping &amp; Stall Detector]
+Auto Failover &amp; Health Probes" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dbeafe;strokeColor=#60a5fa;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_core">
+          <mxGeometry x="20" y="260" width="250" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="baileys_socket" value="Baileys WASocket Engine
+[Multi-Device Protocol Engine]
+Generation Tracking &amp; Reconnect" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dbeafe;strokeColor=#60a5fa;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_core">
+          <mxGeometry x="20" y="365" width="250" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="event_dispatcher" value="Socket Event Dispatcher
+[messages.upsert, creds, contacts]
+Central Event Distribution Hub" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_pipeline">
+          <mxGeometry x="20" y="45" width="290" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="msg_serializer" value="Message Serializer
+[whatsapp.ts Normalization]
+Unrolls Ephemeral, Quoted &amp; Media" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_pipeline">
+          <mxGeometry x="20" y="130" width="290" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="security_gate" value="Security &amp; Mode Gatekeeper
+[Ban Checks &amp; Bot Mode Public/Private]
+Mod / Maintainer Verification" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_pipeline">
+          <mxGeometry x="20" y="215" width="290" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="command_router" value="Command Router &amp; Tokenizer
+[ReadCommands &amp; Prefix Matcher]
+Alias Resolution &amp; Permission Flags" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_pipeline">
+          <mxGeometry x="20" y="300" width="290" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="ai_router" value="AI Chatbot &amp; Persona Router
+[System Prompts &amp; BotCharacters.js]
+Conversational Character Engine" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_pipeline">
+          <mxGeometry x="20" y="390" width="290" height="75" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_core" value="Core Commands
+alive, ping, system,
+restart, eval, shell" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="20" y="50" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_group" value="Group Admin Suite
+kick, add, promote,
+tagall, mute, antilink" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="20" y="155" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_mod" value="Moderator Suite
+ban, unban, warn,
+resetwarn, modlist" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="20" y="260" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_tools" value="Search &amp; Tools
+lyrics, search, QR,
+sticker maker, ffmpeg" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="20" y="365" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_download" value="Media Downloader
+YouTube, Instagram,
+TikTok, Facebook, X" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="200" y="50" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_github" value="GitHub Projects Hub
+Octokit REST &amp; GraphQL
+Issues &amp; Board Sync" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="200" y="155" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_custom" value="Specialized Plugins
+daily-wins, jimmy,
+revive, dynamic loader" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="200" y="260" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="socket_helpers" value="Socket Helpers Decorator
+sendButtons, sendImage,
+outbound dispatcher" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f3e8ff;strokeColor=#c084fc;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_plugins">
+          <mxGeometry x="200" y="365" width="160" height="85" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_gemini" value="Google Gemini AI API
+[@google/genai SDK • Gemini 2.5 Flash]
+Core Conversational Reasoning &amp; Personas" style="rounded=1;whiteSpace=wrap;html=0;dashed=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_external">
+          <mxGeometry x="25" y="50" width="340" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_openai" value="OpenAI &amp; Anthropic APIs
+[GPT-4o &amp; Claude 3.5 Sonnet]
+Multi-Model Resilience Fallback" style="rounded=1;whiteSpace=wrap;html=0;dashed=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_external">
+          <mxGeometry x="25" y="135" width="340" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_github" value="GitHub Platform API
+[REST v3 &amp; GraphQL v4 Endpoints]
+Repository Issues &amp; Project Automation" style="rounded=1;whiteSpace=wrap;html=0;dashed=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_external">
+          <mxGeometry x="25" y="220" width="340" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_scrapers" value="Media Scraping Services
+[RapidAPI, Cheerio, Video CDN Parsers]
+Social Media Stream Extraction" style="rounded=1;whiteSpace=wrap;html=0;dashed=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_external">
+          <mxGeometry x="25" y="305" width="340" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="ext_services" value="Search &amp; Metadata Services
+[youtube-yts &amp; lyrics-scraper]
+Track Metadata &amp; Search Results" style="rounded=1;whiteSpace=wrap;html=0;dashed=1;fillColor=#ffedd5;strokeColor=#fb923c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_external">
+          <mxGeometry x="25" y="390" width="340" height="70" as="geometry"/>
+        </mxCell>
+        <mxCell id="mongo_auth" value="MongoAuth State Store
+[Cloud Multi-Device Credentials]
+Encrypted Signal Keys, Pre-Keys &amp; App State" style="shape=cylinder3;whiteSpace=wrap;html=0;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dcfce7;strokeColor=#4ade80;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="30" y="50" width="320" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="mongo_core" value="Atlas Core MongoDB (Mongoose ODM)
+[Central Relational Document Store]
+Users (XP/Warnings), Groups &amp; Bot Configuration" style="shape=cylinder3;whiteSpace=wrap;html=0;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dcfce7;strokeColor=#4ade80;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="380" y="50" width="340" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="baileys_store" value="In-Memory Baileys Store
+[Active Session Directory]
+Contacts Directory, Chat History &amp; Metadata" style="shape=cylinder3;whiteSpace=wrap;html=0;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dcfce7;strokeColor=#4ade80;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="750" y="50" width="330" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="antidelete_cache" value="Message Revocation Cache
+[TTL-Expiring In-Memory Vault]
+Recent Messages Buffer (MESSAGE_CACHE_TTL_MS)" style="shape=cylinder3;whiteSpace=wrap;html=0;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dcfce7;strokeColor=#4ade80;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="1110" y="50" width="340" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="plugin_watcher" value="Plugin Hot-Reload Watcher
+[fs.watch Dynamic ESM Loader]
+Auto-reloads Plugins without Socket Restarts" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dbeafe;strokeColor=#60a5fa;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="30" y="190" width="320" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="antilink_guard" value="Antilink Protection Guard
+[Group Invite Link Detection]
+Enforces Ban &amp; Warn Actions via MongoDB Policy" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="380" y="190" width="340" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="antidelete_engine" value="Anti-Delete Engine
+[protocolMessage Revocation Sniffer]
+Recovers &amp; Forwards Revoked Messages to Admin" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#fef3c7;strokeColor=#f59e0b;strokeWidth=1.5;fontFamily=Helvetica;fontSize=11;fontStyle=0;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="c_persist">
+          <mxGeometry x="1110" y="190" width="340" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_wa_baileys" value="WebSocket WSS Stream" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#0284c7;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="wa_client" target="baileys_socket">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_web_server" value="REST /api/status &amp; /api/qr" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#0284c7;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="web_gui" target="express_server">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_webhook_server" value="POST /api/webhook" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#0284c7;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.8;" edge="1" parent="1" source="webhook_caller" target="express_server">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_proc_server" value="Spawn &amp; Schedule" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#475569;strokeWidth=1.5;dashed=1;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="process_mgr" target="schedulers">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_express_socket" value="Pairing &amp; Webhook Msg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#0284c7;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.2;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="express_server" target="baileys_socket">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_sched_socket" value="Sleep Disconnect &amp; GC" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;dashed=1;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="schedulers" target="baileys_socket">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_watchdog_socket" value="Health Probe &amp; Ping" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.8;exitY=1;entryX=0.8;entryY=0;" edge="1" parent="1" source="watchdog" target="baileys_socket">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_socket_events" value="ev.emit events" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="baileys_socket" target="event_dispatcher">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_events_serializer" value="messages.upsert" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#d97706;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="event_dispatcher" target="msg_serializer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_serializer_sec" value="Normalized Context" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#d97706;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="msg_serializer" target="security_gate">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_sec_router" value="Authorized Cmd" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#d97706;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.3;exitY=1;entryX=0.3;entryY=0;" edge="1" parent="1" source="security_gate" target="command_router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_sec_ai" value="Chatbot / Non-Cmd" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#d97706;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.7;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="security_gate" target="ai_router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_core" value="Dispatch Core" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.2;entryX=0;entryY=0.5;" edge="1" parent="1" source="command_router" target="plugin_core">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_group" value="Dispatch Group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.4;entryX=0;entryY=0.5;" edge="1" parent="1" source="command_router" target="plugin_group">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_mod" value="Dispatch Mod" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.6;entryX=0;entryY=0.5;" edge="1" parent="1" source="command_router" target="plugin_mod">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_tools" value="Dispatch Tools" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.8;entryX=0;entryY=0.5;" edge="1" parent="1" source="command_router" target="plugin_tools">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_dl" value="Dispatch Downloader" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.2;" edge="1" parent="1" source="command_router" target="plugin_download">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_router_gh" value="Dispatch GitHub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.2;" edge="1" parent="1" source="command_router" target="plugin_github">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_ai_gemini" value="Gemini 2.5 Flash Reasoning" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#ea580c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="ai_router" target="ext_gemini">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_ai_openai" value="Fallback LLM API" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#ea580c;strokeWidth=1.5;dashed=1;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.7;entryX=0;entryY=0.5;" edge="1" parent="1" source="ai_router" target="ext_openai">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_gh_api" value="Octokit REST / GraphQL" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#ea580c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="plugin_github" target="ext_github">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_dl_scrapers" value="Scrape Video / Audio" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#ea580c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="plugin_download" target="ext_scrapers">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_tools_lyrics" value="Query Lyrics &amp; Track Info" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#ea580c;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="plugin_tools" target="ext_services">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_plugin_reply" value="Send Reply" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="plugin_core" target="socket_helpers">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_ai_reply" value="Send AI Message" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=1;exitY=0.9;entryX=0;entryY=0.8;" edge="1" parent="1" source="ai_router" target="socket_helpers">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_helpers_socket" value="Transmit via WASocket" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#2563eb;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0;exitY=0.5;entryX=1;entryY=0.8;" edge="1" parent="1" source="socket_helpers" target="baileys_socket">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_events_auth" value="creds.update (saveCreds)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.2;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="event_dispatcher" target="mongo_auth">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_sec_db" value="Check Ban &amp; Mode" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.3;entryY=0;" edge="1" parent="1" source="security_gate" target="mongo_core">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_group_db" value="Update Group Config" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=1;entryX=0.7;entryY=0;" edge="1" parent="1" source="plugin_group" target="mongo_core">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_events_store" value="contacts.update" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.8;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="event_dispatcher" target="baileys_store">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_events_antidelete" value="messages.update" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#d97706;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.9;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="event_dispatcher" target="antidelete_engine">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_antidelete_cache" value="Lookup Revoked Msg" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="antidelete_engine" target="antidelete_cache">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_antilink_db" value="Enforce Antilink Policy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#16a34a;strokeWidth=1.5;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="antilink_guard" target="mongo_core">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e_watcher_router" value="Hot Reload Plugins" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=0;strokeColor=#9333ea;strokeWidth=1.5;dashed=1;fontFamily=Helvetica;fontSize=10;fontColor=#334155;endArrow=classic;endFill=1;exitX=0.5;exitY=0;entryX=0.1;entryY=1;" edge="1" parent="1" source="plugin_watcher" target="command_router">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

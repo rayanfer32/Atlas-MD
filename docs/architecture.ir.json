@@ -1,0 +1,903 @@
+{
+  "schema": "drawio-skill/diagram-ir/v1",
+  "metadata": {
+    "title": "Atlas-MD System Architecture",
+    "version": "4.1.0",
+    "author": "Atlas-MD Architecture Team",
+    "description": "Comprehensive micro-modular architecture of Atlas-MD WhatsApp Bot, Web Dashboard, and Integration Engine"
+  },
+  "nodes": [
+    {
+      "id": "wa-clients",
+      "label": "WhatsApp MD Network\n(Mobile, Desktop, Groups)",
+      "kind": "actor",
+      "properties": {
+        "owner": "end-users",
+        "environment": "production",
+        "runtime": "whatsapp-client",
+        "technology": "WhatsApp Multi-Device Protocol",
+        "importance": 5,
+        "trust_boundary": "public",
+        "description": "WhatsApp users, groups, and status updates communicating via Baileys multi-device socket"
+      },
+      "provenance": {
+        "path": "core/events.ts",
+        "line": 26
+      }
+    },
+    {
+      "id": "web-dashboard",
+      "label": "Admin Web GUI\n(Status, QR & Pairing Code)",
+      "kind": "actor",
+      "properties": {
+        "owner": "bot-admins",
+        "environment": "production",
+        "runtime": "browser",
+        "technology": "HTML5 / Vanilla CSS / Fetch API",
+        "importance": 4,
+        "trust_boundary": "public",
+        "description": "Web client dashboard for live status, QR code display, and phone pairing code requests"
+      },
+      "provenance": {
+        "path": "frontend/index.html",
+        "line": 1
+      }
+    },
+    {
+      "id": "webhook-client",
+      "label": "External Webhook Caller\n(Metrics & Alert Services)",
+      "kind": "actor",
+      "properties": {
+        "owner": "external-services",
+        "environment": "production",
+        "runtime": "cloud-agent",
+        "technology": "HTTP / Bearer Secret",
+        "importance": 3,
+        "trust_boundary": "public",
+        "description": "External systems delivering automated alert payloads (e.g. Kamavo Live Metrics)"
+      },
+      "provenance": {
+        "path": "core/server.ts",
+        "line": 121
+      }
+    },
+    {
+      "id": "process-mgr",
+      "label": "Process Supervisor\n(PM2 / Docker / OS Signals)",
+      "kind": "service",
+      "properties": {
+        "owner": "devops",
+        "environment": "production",
+        "runtime": "node-runtime",
+        "technology": "PM2 / Docker / SIGINT / SIGTERM",
+        "importance": 4,
+        "trust_boundary": "ingress",
+        "description": "Process supervisor managing container lifecycles, PID files, heap limits, and graceful shutdown"
+      },
+      "provenance": {
+        "path": "index.ts",
+        "line": 26
+      }
+    },
+    {
+      "id": "express-server",
+      "label": "Express HTTP Server\n(:8000 / Webhook / Health)",
+      "kind": "gateway",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "Express 5.x",
+        "importance": 4,
+        "trust_boundary": "ingress",
+        "description": "HTTP server hosting static UI assets and authenticated REST API endpoints"
+      },
+      "provenance": {
+        "path": "core/server.ts",
+        "line": 10
+      }
+    },
+    {
+      "id": "schedulers",
+      "label": "Scheduler & Watchdog Engine\n(GC, Sleep, Watchdog, Pruner)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "Node Timers / node-cron / V8 GC",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "Executes forced V8 garbage collection, night-time sleep scheduling, socket health probes, and message cache pruning"
+      },
+      "provenance": {
+        "path": "core/scheduler.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugin-watcher",
+      "label": "Plugin Hot-Reloader\n(FS Watcher & Dynamic Loader)",
+      "kind": "service",
+      "properties": {
+        "owner": "plugin-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "fs.watch / dynamic ESM import",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Monitors Plugins directory to hot-reload code updates without dropping socket connections"
+      },
+      "provenance": {
+        "path": "core/pluginManager.ts",
+        "line": 35
+      }
+    },
+    {
+      "id": "baileys-socket",
+      "label": "Baileys WASocket Engine\n(makeWASocket & Reconnect)",
+      "kind": "gateway",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "@whiskeysockets/baileys 7.x",
+        "importance": 5,
+        "trust_boundary": "core-vpc",
+        "description": "Maintains persistent WebSocket connection to WhatsApp MD protocol with exponential reconnects"
+      },
+      "provenance": {
+        "path": "core/connection.ts",
+        "line": 200
+      }
+    },
+    {
+      "id": "socket-helpers",
+      "label": "Socket Helpers Extender\n(Media, Buttons, Quoted)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "TypeScript Decorator / Baileys",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "Attaches high-level messaging helpers (sendButtons, sendImage, decodeJid, downloadMedia)"
+      },
+      "provenance": {
+        "path": "core/socketHelpers.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "event-dispatcher",
+      "label": "Socket Event Dispatcher\n(messages, creds, contacts, groups)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "EventEmitter",
+        "importance": 5,
+        "trust_boundary": "core-vpc",
+        "description": "Dispatches Baileys lifecycle events to credential savers, anti-delete listeners, welcome left handlers, and message pipeline"
+      },
+      "provenance": {
+        "path": "core/events.ts",
+        "line": 18
+      }
+    },
+    {
+      "id": "msg-serializer",
+      "label": "Message Serializer\n(Unwrap Ephemeral, Quoted & Media)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "TypeScript / Baileys WAMessage",
+        "importance": 5,
+        "trust_boundary": "core-vpc",
+        "description": "Normalizes incoming proto messages into accessible context object m with sender, text, and media"
+      },
+      "provenance": {
+        "path": "System/whatsapp.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "security-gate",
+      "label": "Security & Mode Gatekeeper\n(Ban Check, BotMode, Mod Auth)",
+      "kind": "service",
+      "properties": {
+        "owner": "security-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "Atlas Security Middleware",
+        "importance": 5,
+        "trust_boundary": "core-vpc",
+        "description": "Enforces user ban checks, group ban checks, bot public/private operating modes, and mod permissions"
+      },
+      "provenance": {
+        "path": "core/core.ts",
+        "line": 100
+      }
+    },
+    {
+      "id": "antidelete-engine",
+      "label": "Anti-Delete Engine\n(Revocation Sniffer & Forwarder)",
+      "kind": "service",
+      "properties": {
+        "owner": "security-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "Baileys Protocol Sniffer",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Detects protocolMessage revocations and forwards deleted messages to group admins or logs"
+      },
+      "provenance": {
+        "path": "core/antidelete.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "command-router",
+      "label": "Command Router & Parser\n(Prefix Matcher, Aliases & Registry)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "ReadCommands Parser",
+        "importance": 5,
+        "trust_boundary": "core-vpc",
+        "description": "Parses custom prefixes, tokenizes command arguments, verifies permission flags, and invokes target plugin"
+      },
+      "provenance": {
+        "path": "System/ReadCommands.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "ai-fallback",
+      "label": "AI Persona & Fallback Router\n(Gemini / OpenAI Character Engine)",
+      "kind": "service",
+      "properties": {
+        "owner": "ai-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "@google/genai / BotCharacters",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "Routes unhandled conversation or chatbot triggers to active character persona backed by Google Gemini"
+      },
+      "provenance": {
+        "path": "System/systemPrompt.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugins-core",
+      "label": "Core Commands Plugin\n(alive, menu, ping, restart, eval)",
+      "kind": "service",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "TypeScript / OS Utilities",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "Diagnostic and bot management commands"
+      },
+      "provenance": {
+        "path": "Plugins/core.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugins-group",
+      "label": "Group Admin & Moderation\n(kick, add, tagall, mute, antilink)",
+      "kind": "service",
+      "properties": {
+        "owner": "mod-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "WhatsApp Group API",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "Automated group administration, antilink, welcome greetings, and warnings"
+      },
+      "provenance": {
+        "path": "Plugins/group.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugins-download",
+      "label": "Media Downloaders\n(YT, IG, TikTok, FB, Twitter/X)",
+      "kind": "service",
+      "properties": {
+        "owner": "media-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "Axios / Cheerio / FFmpeg / yts",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Extracts and transcodes video and audio streams from social platforms"
+      },
+      "provenance": {
+        "path": "Plugins/downloader.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugins-github",
+      "label": "GitHub Projects & Issues\n(Octokit REST & GraphQL Sync)",
+      "kind": "service",
+      "properties": {
+        "owner": "integrations-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "@octokit/rest / @octokit/graphql",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Manages GitHub project boards, issue lifecycles, and team tasks directly from WhatsApp chats"
+      },
+      "provenance": {
+        "path": "Plugins/githubProjects.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "plugins-tools",
+      "label": "Search & Media Tools\n(Stickers, Lyrics, QR, Utilities)",
+      "kind": "service",
+      "properties": {
+        "owner": "tools-team",
+        "environment": "production",
+        "runtime": "node.js",
+        "technology": "wa-sticker-formatter / qrcode / Search-it",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Image conversion, animated sticker generation, lyrics scraper, and utilities"
+      },
+      "provenance": {
+        "path": "Plugins/tools.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "mongo-auth",
+      "label": "MongoAuth State Store\n(Encrypted Multi-Device Credentials)",
+      "kind": "database",
+      "properties": {
+        "owner": "data-team",
+        "environment": "production",
+        "runtime": "mongodb",
+        "technology": "MongoDB GridFS / Collection",
+        "importance": 5,
+        "trust_boundary": "data",
+        "description": "Persists Baileys multi-device authentication credentials, pre-keys, and signal keys safely in cloud MongoDB"
+      },
+      "provenance": {
+        "path": "System/MongoAuth/MongoAuth.js",
+        "line": 1
+      }
+    },
+    {
+      "id": "mongodb-core",
+      "label": "Atlas Core MongoDB\n(Users, Groups, Economy & Configs)",
+      "kind": "database",
+      "properties": {
+        "owner": "data-team",
+        "environment": "production",
+        "runtime": "mongodb",
+        "technology": "Mongoose ODM / MongoDB Atlas",
+        "importance": 5,
+        "trust_boundary": "data",
+        "description": "Central relational state store for user XP/warnings, group settings, antilink rules, and bot modes"
+      },
+      "provenance": {
+        "path": "System/MongoDB/MongoDb_Core.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "baileys-store",
+      "label": "In-Memory Baileys Store\n(Chats, Contacts & Message Buffer)",
+      "kind": "database",
+      "properties": {
+        "owner": "core-team",
+        "environment": "production",
+        "runtime": "node-heap",
+        "technology": "In-Memory LRU / Map",
+        "importance": 4,
+        "trust_boundary": "core-vpc",
+        "description": "High-speed in-memory store for active contacts, chats, and recent message references"
+      },
+      "provenance": {
+        "path": "core/store.ts",
+        "line": 1
+      }
+    },
+    {
+      "id": "antidelete-cache",
+      "label": "Message Revocation Cache\n(TTL-Expiring Message Buffer)",
+      "kind": "database",
+      "properties": {
+        "owner": "security-team",
+        "environment": "production",
+        "runtime": "node-heap",
+        "technology": "TTL Map Cache",
+        "importance": 3,
+        "trust_boundary": "core-vpc",
+        "description": "Temporary message cache used to reconstruct deleted messages before expiration"
+      },
+      "provenance": {
+        "path": "core/store.ts",
+        "line": 15
+      }
+    },
+    {
+      "id": "ext-gemini",
+      "label": "Google Gemini AI API\n(Gemini 2.5 / Flash LLM)",
+      "kind": "external",
+      "properties": {
+        "owner": "google-cloud",
+        "environment": "production",
+        "runtime": "cloud-saas",
+        "technology": "@google/genai SDK / REST",
+        "importance": 4,
+        "trust_boundary": "external-cloud",
+        "description": "Primary conversational LLM providing reasoning and character personas"
+      },
+      "provenance": {
+        "path": "System/systemPrompt.ts",
+        "line": 6
+      }
+    },
+    {
+      "id": "ext-openai-claude",
+      "label": "OpenAI & Anthropic APIs\n(GPT-4o & Claude Fallbacks)",
+      "kind": "external",
+      "properties": {
+        "owner": "third-party",
+        "environment": "production",
+        "runtime": "cloud-saas",
+        "technology": "OpenAI SDK / Anthropic SDK",
+        "importance": 3,
+        "trust_boundary": "external-cloud",
+        "description": "Secondary and tertiary generative AI models for specialized generation"
+      },
+      "provenance": {
+        "path": "package.json",
+        "line": 31
+      }
+    },
+    {
+      "id": "ext-github-api",
+      "label": "GitHub Platform API\n(REST v3 & GraphQL v4)",
+      "kind": "external",
+      "properties": {
+        "owner": "github",
+        "environment": "production",
+        "runtime": "cloud-saas",
+        "technology": "GitHub REST / GraphQL HTTPS",
+        "importance": 3,
+        "trust_boundary": "external-cloud",
+        "description": "GitHub Project board and issue tracking API accessed via Octokit"
+      },
+      "provenance": {
+        "path": "Plugins/githubProjects.ts",
+        "line": 15
+      }
+    },
+    {
+      "id": "ext-scrapers",
+      "label": "Media Scrapers & CDNs\n(YouTube, IG, TT, Lyrics)",
+      "kind": "external",
+      "properties": {
+        "owner": "content-providers",
+        "environment": "production",
+        "runtime": "cloud-saas",
+        "technology": "HTTPS / Cheerio / yts",
+        "importance": 3,
+        "trust_boundary": "external-cloud",
+        "description": "External social platforms and content providers scraped for media downloads"
+      },
+      "provenance": {
+        "path": "Plugins/downloader.ts",
+        "line": 20
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e-wa-socket",
+      "source": "wa-clients",
+      "target": "baileys-socket",
+      "label": "WebSocket WSS",
+      "kind": "sync",
+      "properties": {
+        "protocol": "WSS",
+        "description": "WhatsApp Multi-Device encrypted WebSocket stream"
+      }
+    },
+    {
+      "id": "e-gui-http",
+      "source": "web-dashboard",
+      "target": "express-server",
+      "label": "HTTP REST / QR",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTP",
+        "description": "Fetch status, QR DataURL, and request pairing code"
+      }
+    },
+    {
+      "id": "e-webhook-http",
+      "source": "webhook-client",
+      "target": "express-server",
+      "label": "POST /api/webhook",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS",
+        "description": "Bearer token authorized alert notification"
+      }
+    },
+    {
+      "id": "e-proc-server",
+      "source": "process-mgr",
+      "target": "express-server",
+      "label": "Spawn & Monitor",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Node IPC",
+        "description": "Launches server on global.port with heap cap"
+      }
+    },
+    {
+      "id": "e-proc-sched",
+      "source": "process-mgr",
+      "target": "schedulers",
+      "label": "Initialize Timers",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Node IPC",
+        "description": "Starts maintenance, GC, sleep, and watchdog timers"
+      }
+    },
+    {
+      "id": "e-server-socket",
+      "source": "express-server",
+      "target": "baileys-socket",
+      "label": "Pairing & Dispatch",
+      "kind": "sync",
+      "properties": {
+        "protocol": "In-Process Call",
+        "description": "Requests pairing code and forwards webhook messages"
+      }
+    },
+    {
+      "id": "e-watchdog-socket",
+      "source": "schedulers",
+      "target": "baileys-socket",
+      "label": "Health Probe & GC",
+      "kind": "async",
+      "properties": {
+        "protocol": "KeepAlive Ping",
+        "description": "Periodic health query and keepalive interval"
+      }
+    },
+    {
+      "id": "e-socket-helpers",
+      "source": "baileys-socket",
+      "target": "socket-helpers",
+      "label": "Attach Helpers",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Object Mutation",
+        "description": "Decorates WASocket instance with helper APIs"
+      }
+    },
+    {
+      "id": "e-socket-events",
+      "source": "baileys-socket",
+      "target": "event-dispatcher",
+      "label": "ev.emit events",
+      "kind": "async",
+      "properties": {
+        "protocol": "EventEmitter",
+        "description": "Emits messages.upsert, creds.update, contacts.update"
+      }
+    },
+    {
+      "id": "e-events-auth",
+      "source": "event-dispatcher",
+      "target": "mongo-auth",
+      "label": "saveCreds()",
+      "kind": "write",
+      "properties": {
+        "protocol": "MongoDB Write",
+        "description": "Persists multi-device auth credentials to MongoDB"
+      }
+    },
+    {
+      "id": "e-events-serializer",
+      "source": "event-dispatcher",
+      "target": "msg-serializer",
+      "label": "messages.upsert",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Passes raw WAMessage to serializer"
+      }
+    },
+    {
+      "id": "e-events-antidelete",
+      "source": "event-dispatcher",
+      "target": "antidelete-engine",
+      "label": "messages.update",
+      "kind": "async",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Sniffs message revocation update"
+      }
+    },
+    {
+      "id": "e-events-store",
+      "source": "event-dispatcher",
+      "target": "baileys-store",
+      "label": "Sync Contacts & Chats",
+      "kind": "write",
+      "properties": {
+        "protocol": "In-Memory Write",
+        "description": "Stores contact names and chat metadata"
+      }
+    },
+    {
+      "id": "e-serializer-security",
+      "source": "msg-serializer",
+      "target": "security-gate",
+      "label": "Normalized msg",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Hands deserialized message to security middleware"
+      }
+    },
+    {
+      "id": "e-security-db",
+      "source": "security-gate",
+      "target": "mongodb-core",
+      "label": "Check Ban & Mode",
+      "kind": "read",
+      "properties": {
+        "protocol": "Mongoose Query",
+        "description": "Reads ban lists, bot mode, and group settings"
+      }
+    },
+    {
+      "id": "e-security-router",
+      "source": "security-gate",
+      "target": "command-router",
+      "label": "Authorized Command",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Transfers verified message to command tokenizer"
+      }
+    },
+    {
+      "id": "e-security-ai",
+      "source": "security-gate",
+      "target": "ai-fallback",
+      "label": "Chatbot / Non-cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Hands conversation to AI chatbot when enabled"
+      }
+    },
+    {
+      "id": "e-antidelete-cache",
+      "source": "antidelete-engine",
+      "target": "antidelete-cache",
+      "label": "Lookup Revoked Msg",
+      "kind": "read",
+      "properties": {
+        "protocol": "Memory Query",
+        "description": "Retrieves cached copy of revoked message"
+      }
+    },
+    {
+      "id": "e-antidelete-db",
+      "source": "antidelete-engine",
+      "target": "mongodb-core",
+      "label": "Check Group Config",
+      "kind": "read",
+      "properties": {
+        "protocol": "Mongoose Query",
+        "description": "Verifies if antidelete is toggled ON for chat"
+      }
+    },
+    {
+      "id": "e-sched-pruner",
+      "source": "schedulers",
+      "target": "antidelete-cache",
+      "label": "Prune Stale (TTL)",
+      "kind": "write",
+      "properties": {
+        "protocol": "Timer Sweep",
+        "description": "Prunes expired messages older than MESSAGE_CACHE_TTL_MS"
+      }
+    },
+    {
+      "id": "e-watcher-plugins",
+      "source": "plugin-watcher",
+      "target": "command-router",
+      "label": "Hot Reload Plugins",
+      "kind": "async",
+      "properties": {
+        "protocol": "Dynamic ESM Import",
+        "description": "Re-indexes plugin command registry"
+      }
+    },
+    {
+      "id": "e-router-core",
+      "source": "command-router",
+      "target": "plugins-core",
+      "label": "Dispatch Core Cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Executes menu, alive, ping, system, restart"
+      }
+    },
+    {
+      "id": "e-router-group",
+      "source": "command-router",
+      "target": "plugins-group",
+      "label": "Dispatch Group Cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Executes kick, add, tagall, mute, antilink"
+      }
+    },
+    {
+      "id": "e-router-download",
+      "source": "command-router",
+      "target": "plugins-download",
+      "label": "Dispatch Media Cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Executes video and audio download commands"
+      }
+    },
+    {
+      "id": "e-router-github",
+      "source": "command-router",
+      "target": "plugins-github",
+      "label": "Dispatch GitHub Cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Executes issue and board management commands"
+      }
+    },
+    {
+      "id": "e-router-tools",
+      "source": "command-router",
+      "target": "plugins-tools",
+      "label": "Dispatch Tools Cmd",
+      "kind": "sync",
+      "properties": {
+        "protocol": "Function Call",
+        "description": "Executes stickers, QR, and utility commands"
+      }
+    },
+    {
+      "id": "e-group-db",
+      "source": "plugins-group",
+      "target": "mongodb-core",
+      "label": "Update Group Policy",
+      "kind": "write",
+      "properties": {
+        "protocol": "Mongoose Update",
+        "description": "Saves antilink, welcome, and mute settings"
+      }
+    },
+    {
+      "id": "e-core-db",
+      "source": "plugins-core",
+      "target": "mongodb-core",
+      "label": "Read/Write State",
+      "kind": "write",
+      "properties": {
+        "protocol": "Mongoose Query",
+        "description": "Updates bot mode and active character persona"
+      }
+    },
+    {
+      "id": "e-ai-gemini",
+      "source": "ai-fallback",
+      "target": "ext-gemini",
+      "label": "Generate Content",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS REST",
+        "description": "Google Gemini system prompt chat completion"
+      }
+    },
+    {
+      "id": "e-ai-openai",
+      "source": "ai-fallback",
+      "target": "ext-openai-claude",
+      "label": "Fallback LLM",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS REST",
+        "description": "Multi-model fallback when Gemini is rate-limited"
+      }
+    },
+    {
+      "id": "e-github-api",
+      "source": "plugins-github",
+      "target": "ext-github-api",
+      "label": "GraphQL / Octokit",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS GraphQL",
+        "description": "Synchronizes issues, projects, and comments"
+      }
+    },
+    {
+      "id": "e-download-scrapers",
+      "source": "plugins-download",
+      "target": "ext-scrapers",
+      "label": "Scrape Streams",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS / Stream",
+        "description": "Scrapes and streams media from YouTube/IG/TikTok"
+      }
+    },
+    {
+      "id": "e-tools-scrapers",
+      "source": "plugins-tools",
+      "target": "ext-scrapers",
+      "label": "Query Search / Lyrics",
+      "kind": "sync",
+      "properties": {
+        "protocol": "HTTPS REST",
+        "description": "Queries lyrics scraper and web search engines"
+      }
+    },
+    {
+      "id": "e-plugins-outbound",
+      "source": "plugins-core",
+      "target": "socket-helpers",
+      "label": "Send Response Msg",
+      "kind": "sync",
+      "properties": {
+        "protocol": "In-Process Call",
+        "description": "Sends text, media, buttons back via WASocket"
+      }
+    },
+    {
+      "id": "e-ai-outbound",
+      "source": "ai-fallback",
+      "target": "socket-helpers",
+      "label": "Send AI Reply",
+      "kind": "sync",
+      "properties": {
+        "protocol": "In-Process Call",
+        "description": "Delivers AI character reply back to WhatsApp"
+      }
+    }
+  ],
+  "views": []
+}
