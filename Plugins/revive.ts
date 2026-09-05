@@ -99,8 +99,7 @@ export default {
       const originalCaption = mediaMsg.caption || "";
       const caption =
         `👁️ *View Once Revived*\n\n` +
-        (originalCaption ? `${originalCaption}\n\n` : "") +
-        `_Revived by ${botName}_`;
+        (originalCaption ? `${originalCaption}\n\n` : "");
 
       // Send as normal (non-view-once) message
       if (isImage) {

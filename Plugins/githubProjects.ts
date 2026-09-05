@@ -943,6 +943,9 @@ export default {
           await doReact("⏳");
 
           try {
+            if (!m.quoted.download) {
+              throw new Error("No download method available on quoted message");
+            }
             const buffer = await m.quoted.download();
             const tempDir = os.tmpdir();
             const filename = `qa-${Date.now()}.jpg`;

@@ -21,6 +21,7 @@ let mergedCommands = [
   "wall",
   "wikipedia",
   "wiki",
+  "g",
 ];
 
 export default {
@@ -36,10 +37,36 @@ export default {
     "github",
     "wallpaper",
     "wikipedia",
+    "g",
   ],
   description: "All picture related commands",
   start: async (Atlas: any, m: any, { inputCMD, text, doReact, prefix, pushName }: any) => {
     switch (inputCMD) {
+      case "g": {
+        const cleanText = text?.trim() || "";
+        const quotedText = m.quoted?.text?.trim() || "";
+
+        let query = "";
+        if (quotedText && cleanText) {
+          query = `${quotedText} ${cleanText}`.trim();
+        } else if (cleanText) {
+          query = cleanText;
+        } else if (quotedText) {
+          query = quotedText;
+        }
+
+        if (!query) {
+          await doReact("❔");
+          return m.reply(
+            `Please provide a search term or reply to a message!\n\nExample: *${prefix}g who is the most clever minister in the world ?*`
+          );
+        }
+
+        await doReact("🔍");
+        const url = `https://www.google.com/ai?q=${encodeURIComponent(query)}`;
+        return m.reply(url);
+      }
+
       case "google":
       case "search":
         if (!text) {
@@ -241,7 +268,7 @@ export default {
           pack: packname,
           author: pushName,
           type: StickerTypes.FULL,
-          categories: ["🤩", "🎉"],
+          categories: ["✨", "🎉"],
           id: "12345",
           quality: 60,
           background: "transparent",
