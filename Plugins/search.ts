@@ -44,7 +44,14 @@ export default {
     switch (inputCMD) {
       case "g": {
         const cleanText = text?.trim() || "";
-        const quotedText = m.quoted?.text?.trim() || "";
+        const quotedText = (
+          m.quoted?.text ||
+          (typeof m.quoted?.msg === "string" ? m.quoted.msg : "") ||
+          m.quoted?.conversation ||
+          m.quoted?.msg?.text ||
+          m.quoted?.msg?.caption ||
+          ""
+        ).trim();
 
         let query = "";
         if (quotedText && cleanText) {

@@ -24,11 +24,12 @@ export const serialize = (Atlas: any, m: any, options = {}) => {
     );
   }
   if (m.message) {
-    m.type = getContentType(m.message);
     m.message = extractMessageContent(m.message);
-    m.msg = m.message[m.type];
+    m.type = getContentType(m.message);
+    m.msg = m.message?.[m.type];
     m.mentions = m.msg?.contextInfo ? m.msg?.contextInfo.mentionedJid : [];
-    m.quoted = m.msg?.contextInfo ? m.msg?.contextInfo.quotedMessage : null;
+    const rawQuoted = m.msg?.contextInfo ? m.msg?.contextInfo.quotedMessage : null;
+    m.quoted = rawQuoted ? extractMessageContent(rawQuoted) : null;
     if (m.quoted) {
       m.quoted.type = getContentType(m.quoted);
       m.quoted.msg = m.quoted[m.quoted.type];
@@ -43,9 +44,11 @@ export const serialize = (Atlas: any, m: any, options = {}) => {
       m.quoted.fromMe =
         m.quoted.sender === jidNormalizedUser(Atlas.user && Atlas.user?.id);
       m.quoted.text =
+        (typeof m.quoted.msg === "string" ? m.quoted.msg : "") ||
         m.quoted.msg?.text ||
         m.quoted.msg?.caption ||
         m.quoted.msg?.conversation ||
+        m.quoted.conversation ||
         m.quoted.msg?.contentText ||
         m.quoted.msg?.selectedDisplayText ||
         m.quoted.msg?.title ||
