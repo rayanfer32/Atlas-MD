@@ -43,9 +43,6 @@ import { initSleepScheduler, initGCScheduler } from "./core/scheduler.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Write PID file
-fs.writeFileSync(path.join(__dirname, "atlas.pid"), process.pid.toString());
-
 // Initialize Baileys/libsignal noise filter
 initLoggerNoiseFilter();
 
@@ -685,49 +682,8 @@ const runWatchdog = async (): Promise<void> => {
   }
 };
 
-// Plugin directory hot-reloading watcher
-let reloadTimeout: NodeJS.Timeout | null = null;
-fs.watch("./Plugins", (_eventType, filename) => {
-  if (filename && (filename.endsWith(".js") || filename.endsWith(".ts"))) {
-    if (reloadTimeout) clearTimeout(reloadTimeout);
-    reloadTimeout = setTimeout(async () => {
-      try {
-        await readcommands();
-        console.log(chalk.green(`[ ATLAS ] Hot-reloaded modified plugin: ${filename}`));
-      } catch (err: any) {
-        console.error(chalk.redBright(`[ ATLAS ] Failed to hot-reload: ${err.message}`));
-      }
-    }, 500);
-  }
-});
-
-// Start Express HTTP server & Schedulers
-startServer((global as any).port);
-initSleepScheduler(startAtlas);
-maintenanceTimer = initGCScheduler(runPeriodicSync);
-
-// Watchdog timer & message cache prune timer
-watchdogTimer = setInterval(() => {
-  void runWatchdog();
-}, WATCHDOG_INTERVAL_MS);
-
-messageCacheTimer = setInterval(
-  () => store.pruneMessages(),
-  Math.min(
-    10 * 60 * 1000,
-    Math.max(60_000, Math.floor(MESSAGE_CACHE_TTL_MS / 2))
-  )
-);
-
-console.log(
-  chalk.cyan(
-    `[ ATLAS ] Connection watchdog active - probing every ` +
-    `${WATCHDOG_INTERVAL_MS / 1000}s`
-  )
-);
-
 // Graceful process shutdown
-const shutdown = async (signal: string) => {
+export const shutdown = async (signal: string) => {
   if (shuttingDown) return;
   shuttingDown = true;
   setServerStatus("stopping");
@@ -748,8 +704,70 @@ const shutdown = async (signal: string) => {
   process.exit(0);
 };
 
-process.once("SIGINT", () => void shutdown("SIGINT"));
-process.once("SIGTERM", () => void shutdown("SIGTERM"));
+/**
+ * Start the standalone bot process (with PID file, HTTP server, watchdog, and hot-reloader)
+ */
+export const startStandalone = async () => {
+  // Write PID file
+  fs.writeFileSync(path.join(__dirname, "atlas.pid"), process.pid.toString());
 
-// Launch bot
-void startAtlas("initial");
+  // Plugin directory hot-reloading watcher
+  let reloadTimeout: NodeJS.Timeout | null = null;
+  if (fs.existsSync("./Plugins")) {
+    fs.watch("./Plugins", (_eventType, filename) => {
+      if (filename && (filename.endsWith(".js") || filename.endsWith(".ts"))) {
+        if (reloadTimeout) clearTimeout(reloadTimeout);
+        reloadTimeout = setTimeout(async () => {
+          try {
+            await readcommands();
+            console.log(chalk.green(`[ ATLAS ] Hot-reloaded modified plugin: ${filename}`));
+          } catch (err: any) {
+            console.error(chalk.redBright(`[ ATLAS ] Failed to hot-reload: ${err.message}`));
+          }
+        }, 500);
+      }
+    });
+  }
+
+  // Start Express HTTP server & Schedulers
+  startServer((global as any).port);
+  initSleepScheduler(startAtlas);
+  maintenanceTimer = initGCScheduler(runPeriodicSync);
+
+  // Watchdog timer & message cache prune timer
+  watchdogTimer = setInterval(() => {
+    void runWatchdog();
+  }, WATCHDOG_INTERVAL_MS);
+
+  messageCacheTimer = setInterval(
+    () => store.pruneMessages(),
+    Math.min(
+      10 * 60 * 1000,
+      Math.max(60_000, Math.floor(MESSAGE_CACHE_TTL_MS / 2))
+    )
+  );
+
+  console.log(
+    chalk.cyan(
+      `[ ATLAS ] Connection watchdog active - probing every ` +
+      `${WATCHDOG_INTERVAL_MS / 1000}s`
+    )
+  );
+
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+
+  // Launch bot
+  await startAtlas("initial");
+};
+
+// Check if running as main process
+const isMain = process.argv[1] && (
+  fileURLToPath(import.meta.url).replace(/\\/g, "/") === path.resolve(process.argv[1]).replace(/\\/g, "/") ||
+  process.argv[1].endsWith("index.ts") ||
+  process.argv[1].endsWith("index.js")
+);
+
+if (isMain && !process.env.ATLAS_NO_AUTOSTART) {
+  void startStandalone();
+}

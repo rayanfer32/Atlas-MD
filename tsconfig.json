@@ -17,6 +17,7 @@
     "System/**/*",
     "core/**/*",
     "types/**/*",
+    "src/**/*",
     "index.ts"
   ],
   "exclude": [
