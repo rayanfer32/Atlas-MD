@@ -3,11 +3,7 @@ import {
   jidNormalizedUser,
   getContentType,
   proto,
-  downloadContentFromMessage,
 } from "@whiskeysockets/baileys";
-import fs from "fs";
-import { fileTypeFromBuffer } from "file-type";
-import { getRandom } from "./functions.js";
 
 export const serialize = (Atlas: any, m: any, options = {}) => {
   if (!m) return m;
