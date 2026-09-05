@@ -29,6 +29,7 @@
 ╭─❖ *GITHUBPROJECTS.TS* ❖
     ❯  /ghcreate, /ghadd, /ghdone
     ❯  /ghcancel, /ghmove, /ghc
+    ❯  /ghboard, /ghb
 ╰──────────────────
 
 ╭─❖ *ɢʀᴏᴜᴘ ᴍᴀɴᴀɢᴇᴍᴇɴᴛ* ❖

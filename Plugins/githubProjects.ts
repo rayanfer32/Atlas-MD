@@ -414,6 +414,251 @@ async function findProjectItemByIssueNumber(
   return null;
 }
 
+interface ProjectBoardItem {
+  id: string;
+  status: string;
+  type: 'issue' | 'pr' | 'draft';
+  number?: number;
+  title: string;
+  url?: string;
+  state?: string;
+}
+
+interface ProjectBoardData {
+  title: string;
+  url: string;
+  columns: { id: string; name: string }[];
+  items: ProjectBoardItem[];
+}
+
+async function fetchProjectBoard(
+  graphqlClient: any,
+  projectId: string,
+  statusFieldId: string
+): Promise<ProjectBoardData> {
+  const query = `
+    query GetProjectBoard($projectId: ID!, $after: String) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          title
+          url
+          fields(first: 30) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options {
+                  id
+                  name
+                }
+              }
+            }
+          }
+          items(first: 100, after: $after) {
+            pageInfo {
+              hasNextPage
+              endCursor
+            }
+            nodes {
+              id
+              isArchived
+              fieldValues(first: 15) {
+                nodes {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                    field {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+              content {
+                __typename
+                ... on Issue {
+                  number
+                  title
+                  state
+                  url
+                }
+                ... on PullRequest {
+                  number
+                  title
+                  state
+                  url
+                }
+                ... on DraftIssue {
+                  title
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  let after: string | null = null;
+  let hasNextPage = true;
+  let title = "GitHub Project";
+  let url = "";
+  let columns: { id: string; name: string }[] = [];
+  const items: ProjectBoardItem[] = [];
+
+  let pageCount = 0;
+  while (hasNextPage && pageCount < 10) {
+    pageCount++;
+    const res: any = await graphqlClient(query, { projectId, after });
+    const projectNode = res.node;
+    if (!projectNode) {
+      throw new Error(`GitHub Project with ID "${projectId}" not found.`);
+    }
+
+    if (!title || title === "GitHub Project") {
+      title = projectNode.title || "GitHub Project";
+      url = projectNode.url || "";
+    }
+
+    if (columns.length === 0) {
+      const fields: any[] = projectNode.fields?.nodes ?? [];
+      let statusField = fields.find((f: any) => f?.id === statusFieldId);
+      if (!statusField) {
+        statusField = fields.find((f: any) => /status/i.test(f?.name) && f?.options);
+      }
+      if (statusField && statusField.options) {
+        columns = statusField.options.map((opt: any) => ({
+          id: opt.id,
+          name: opt.name,
+        }));
+      }
+    }
+
+    const itemNodes: any[] = projectNode.items?.nodes ?? [];
+    for (const node of itemNodes) {
+      if (node.isArchived) continue;
+
+      const fvNodes: any[] = node.fieldValues?.nodes ?? [];
+      const statusVal = fvNodes.find((fv: any) => fv?.field?.id === statusFieldId);
+      const statusName = statusVal?.name || "No Status";
+
+      let type: 'issue' | 'pr' | 'draft' = 'draft';
+      let number: number | undefined;
+      let itemTitle = 'Untitled';
+      let itemUrl: string | undefined;
+      let state: string | undefined;
+
+      if (node.content) {
+        if (node.content.__typename === 'Issue') {
+          type = 'issue';
+          number = node.content.number;
+          itemTitle = node.content.title;
+          itemUrl = node.content.url;
+          state = node.content.state;
+        } else if (node.content.__typename === 'PullRequest') {
+          type = 'pr';
+          number = node.content.number;
+          itemTitle = node.content.title;
+          itemUrl = node.content.url;
+          state = node.content.state;
+        } else if (node.content.__typename === 'DraftIssue') {
+          type = 'draft';
+          itemTitle = node.content.title;
+        }
+      }
+
+      items.push({
+        id: node.id,
+        status: statusName,
+        type,
+        number,
+        title: itemTitle.replace(/\r?\n|\r/g, ' ').trim(),
+        url: itemUrl,
+        state,
+      });
+    }
+
+    hasNextPage = projectNode.items?.pageInfo?.hasNextPage ?? false;
+    after = projectNode.items?.pageInfo?.endCursor ?? null;
+  }
+
+  return { title, url, columns, items };
+}
+
+function renderProgressBar(percentage: number, length: number = 10): string {
+  const filled = Math.min(length, Math.max(0, Math.round((percentage / 100) * length)));
+  const empty = length - filled;
+  return '█'.repeat(filled) + '░'.repeat(empty);
+}
+
+function getColumnEmoji(columnName: string): string {
+  const lower = columnName.toLowerCase();
+  if (lower.includes('backlog') || lower.includes('todo') || lower.includes('to do')) return '⚪';
+  if (lower.includes('progress') || lower.includes('doing') || lower.includes('wip')) return '🟡';
+  if (lower.includes('review') || lower.includes('qa') || lower.includes('testing')) return '🟣';
+  if (lower.includes('done') || lower.includes('completed') || lower.includes('closed')) return '🟢';
+  if (lower.includes('v2') || lower.includes('future') || lower.includes('roadmap') || lower.includes('icebox')) return '🚀';
+  return '🔹';
+}
+
+function findMatchingColumn(
+  columns: { id: string; name: string }[],
+  query: string
+): { id: string; name: string } | null {
+  const clean = (s: string) => s.toLowerCase().replace(/[-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  const q = clean(query);
+  if (!q) return null;
+
+  const exact = columns.find(c => clean(c.name) === q);
+  if (exact) return exact;
+
+  const sub = columns.find(c => clean(c.name).includes(q) || q.includes(clean(c.name)));
+  if (sub) return sub;
+
+  if (q.includes('rev') || q.includes('qa') || q.includes('test')) {
+    const rev = columns.find(c => /review|qa|test/i.test(c.name));
+    if (rev) return rev;
+  }
+  if (q.includes('prog') || q.includes('do') || q.includes('wip')) {
+    const prog = columns.find(c => /progress|doing|wip/i.test(c.name));
+    if (prog) return prog;
+  }
+  if (q.includes('todo') || q.includes('backlog')) {
+    const todo = columns.find(c => /todo|to do|backlog/i.test(c.name));
+    if (todo) return todo;
+  }
+  if (q.includes('done') || q.includes('close') || q.includes('finish') || q.includes('comp')) {
+    const done = columns.find(c => /done|closed|complete/i.test(c.name));
+    if (done) return done;
+  }
+
+  return null;
+}
+
+function formatBoardItemLine(item: ProjectBoardItem, maxLen: number = 80): string {
+  let title = item.title;
+  if (title.length > maxLen) {
+    title = title.slice(0, maxLen - 3) + '...';
+  }
+  if (item.type === 'issue') {
+    return `• #${item.number} ${title}`;
+  } else if (item.type === 'pr') {
+    return `• 🔀 #${item.number} ${title}`;
+  } else {
+    return `• 📝 ${title}`;
+  }
+}
+
+function formatColumnItemLine(item: ProjectBoardItem, index: number): string {
+  if (item.type === 'issue') {
+    return `${index + 1}. *#${item.number}* ${item.title}`;
+  } else if (item.type === 'pr') {
+    return `${index + 1}. 🔀 *#${item.number}* ${item.title}`;
+  } else {
+    return `${index + 1}. 📝 ${item.title}`;
+  }
+}
+
 function extractIssueNumber(text: string): number | null {
   const ghMatch = text.match(/GH-(\d+)/i);
   if (ghMatch) return parseInt(ghMatch[1], 10);
@@ -656,8 +901,8 @@ function checkConfig(): void {
 // 6. Export Plugin Definition
 export default {
   name: "githubprojects",
-  alias: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc"],
-  uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc"],
+  alias: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"],
+  uniquecommands: ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"],
   description: "GitHub Projects ticketing system inside WhatsApp group chats",
   start: async (
     Atlas: AtlasClient,
@@ -1156,6 +1401,147 @@ export default {
           console.error("Failed to move ticket:", err);
           await doReact("❌");
           await m.reply(`❌ Failed to update status. Error: ${err.message}`);
+        }
+        break;
+      }
+
+      case "ghboard":
+      case "ghb": {
+        await doReact("⏳");
+
+        try {
+          const boardData = await fetchProjectBoard(graphqlClient, groupConfig.projectId, groupConfig.statusFieldId);
+
+          const itemsByStatus = new Map<string, ProjectBoardItem[]>();
+          for (const col of boardData.columns) {
+            itemsByStatus.set(col.name, []);
+          }
+          const noStatusItems: ProjectBoardItem[] = [];
+
+          for (const item of boardData.items) {
+            if (itemsByStatus.has(item.status)) {
+              itemsByStatus.get(item.status)!.push(item);
+            } else {
+              noStatusItems.push(item);
+            }
+          }
+
+          const filterArg = text.trim();
+
+          // 1. Single Column Inspection (/ghboard [column])
+          if (filterArg) {
+            const targetCol = findMatchingColumn(boardData.columns, filterArg);
+            if (!targetCol) {
+              const availableCols = boardData.columns.map(c => `\`${c.name}\``).join(', ');
+              await doReact("❌");
+              return m.reply(
+                `❗ Column "*${filterArg}*" not found on the board.\n\n` +
+                `*Available columns:* ${availableCols}\n\n` +
+                `*Usage:* \`${prefix}ghboard\` or \`${prefix}ghboard [column]\``
+              );
+            }
+
+            const colItems = itemsByStatus.get(targetCol.name) || [];
+            const emoji = getColumnEmoji(targetCol.name);
+
+            let itemsBody = '';
+            if (colItems.length === 0) {
+              itemsBody = `_No items in this column._`;
+            } else {
+              const displayItems = colItems.slice(0, 30);
+              const lines = displayItems.map((it, idx) => formatColumnItemLine(it, idx));
+              if (colItems.length > 30) {
+                lines.push(`\n_...and ${colItems.length - 30} more items on GitHub._`);
+              }
+              itemsBody = lines.join('\n');
+            }
+
+            const message = [
+              `${emoji} *${targetCol.name}* (${colItems.length} items)`,
+              `📋 *${boardData.title}*`,
+              boardData.url ? `🔗 ${boardData.url}` : '',
+              '',
+              `━━━━━━━━━━━━━━━━━━━━━`,
+              itemsBody,
+              '',
+              `💡 _Use \`${prefix}ghboard\` to view the entire board overview._`
+            ].filter(Boolean).join('\n');
+
+            await doReact("📋");
+            await m.reply(message);
+            break;
+          }
+
+          // 2. Full Board Overview & Sneak Peek (/ghboard)
+          const doneCol = boardData.columns.find(c => /done|closed|complete/i.test(c.name));
+          const doneCount = doneCol ? (itemsByStatus.get(doneCol.name)?.length || 0) : 0;
+          const totalCount = boardData.items.length;
+          const donePercent = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
+          const progressBar = renderProgressBar(donePercent, 10);
+
+          const statsLines = boardData.columns.map(col => {
+            const count = itemsByStatus.get(col.name)?.length || 0;
+            const emoji = getColumnEmoji(col.name);
+            return `• ${emoji} *${col.name}:* ${count}`;
+          });
+
+          if (noStatusItems.length > 0) {
+            statsLines.push(`• ❓ *No Status:* ${noStatusItems.length}`);
+          }
+
+          const previewSections: string[] = [];
+          for (const col of boardData.columns) {
+            const colItems = itemsByStatus.get(col.name) || [];
+            const emoji = getColumnEmoji(col.name);
+            const header = `${emoji} *${col.name}* (${colItems.length})`;
+
+            if (colItems.length === 0) {
+              previewSections.push(`${header}\n_No items_`);
+            } else {
+              const topItems = colItems.slice(0, 4);
+              const itemLines = topItems.map(it => formatBoardItemLine(it, 80));
+              const remaining = colItems.length - topItems.length;
+              if (remaining > 0) {
+                const slug = col.name.toLowerCase().replace(/\s+/g, '-');
+                itemLines.push(`_...and ${remaining} more (\`${prefix}ghboard ${slug}\`)_`);
+              }
+              previewSections.push(`${header}\n${itemLines.join('\n')}`);
+            }
+          }
+
+          if (noStatusItems.length > 0) {
+            const topItems = noStatusItems.slice(0, 4);
+            const itemLines = topItems.map(it => formatBoardItemLine(it, 80));
+            const remaining = noStatusItems.length - topItems.length;
+            if (remaining > 0) {
+              itemLines.push(`_...and ${remaining} more_`);
+            }
+            previewSections.push(`❓ *No Status* (${noStatusItems.length})\n${itemLines.join('\n')}`);
+          }
+
+          const message = [
+            `📋 *${boardData.title}*`,
+            boardData.url ? `🔗 ${boardData.url}` : '',
+            '',
+            `📊 *Board Statistics:*`,
+            `• 📦 *Total Items:* ${totalCount}`,
+            ...statsLines,
+            `📈 *Progress:* [${progressBar}] ${donePercent}% (${doneCount}/${totalCount} Done)`,
+            '',
+            `━━━━━━━━━━━━━━━━━━━━━`,
+            `👀 *Board Sneak Peek:*`,
+            '',
+            previewSections.join('\n\n'),
+            '',
+            `💡 _Use \`${prefix}ghboard [status]\` (e.g. \`${prefix}ghboard review\`) to see all items in a column._`
+          ].filter(Boolean).join('\n');
+
+          await doReact("📋");
+          await m.reply(message);
+        } catch (err: any) {
+          console.error("Failed to fetch project board:", err);
+          await doReact("❌");
+          await m.reply(`❌ Failed to fetch project board. Error: ${err.message}`);
         }
         break;
       }
