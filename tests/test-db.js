@@ -1,4 +1,4 @@
-import "./core/configurations.js";
+import "../core/configurations.js";
 import mongoose from "mongoose";
 import chalk from "chalk";
 import figlet from "figlet";
