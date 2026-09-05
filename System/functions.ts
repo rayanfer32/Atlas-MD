@@ -1,12 +1,9 @@
 import { proto, getContentType } from "@whiskeysockets/baileys";
-import fs from "fs";
-import path from "path";
+import fs from "node:fs";
+import path from "node:path";
+import util from "node:util";
+import child_process from "node:child_process";
 import axios, { type AxiosRequestConfig } from "axios";
-import moment from "moment-timezone";
-import { sizeFormatter } from "human-readable";
-import util from "util";
-import { Jimp } from "jimp";
-import child_process from "child_process";
 import ffmpegStatic from "ffmpeg-static";
 
 const { unlink } = fs.promises;
@@ -19,10 +16,6 @@ export const generateMessageTag = (epoch?: string | number): string => {
   let tag = unixTimestampSeconds().toString();
   if (epoch) tag += ".--" + epoch;
   return tag;
-};
-
-export const processTime = (timestamp: number, now: number): number => {
-  return moment.duration(now - moment(timestamp * 1000).valueOf()).asSeconds();
 };
 
 export const getRandom = (ext = ""): string => {
@@ -81,13 +74,6 @@ export const runtime = (seconds: number | string): string => {
   return dDisplay + hDisplay + mDisplay + sDisplay;
 };
 
-export const clockString = (ms: number): string => {
-  const h = isNaN(ms) ? "--" : Math.floor(ms / 3600000);
-  const m = isNaN(ms) ? "--" : Math.floor(ms / 60000) % 60;
-  const s = isNaN(ms) ? "--" : Math.floor(ms / 1000) % 60;
-  return [h, m, s].map((v) => v.toString().padStart(2, "0")).join(":");
-};
-
 export const sleep = async (ms: number): Promise<void> => {
   return new Promise((resolve) => setTimeout(resolve, ms));
 };
@@ -101,79 +87,8 @@ export const isUrl = (url: string): RegExpMatchArray | null => {
   );
 };
 
-export const isNumber = (number: any): boolean => {
-  const int = parseInt(number);
-  return typeof int === "number" && !isNaN(int);
-};
-
-export const getTime = (format: string, date?: string | number | Date): string => {
-  if (date) {
-    return moment(date).locale("id").format(format);
-  } else {
-    return moment.tz("Asia/Jakarta").locale("id").format(format);
-  }
-};
-
-export const formatDate = (n: number | string | Date, locale = "id"): string => {
-  const d = new Date(n);
-  return d.toLocaleDateString(locale, {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-  });
-};
-
-export const tanggal = (numer: number | string | Date): string => {
-  const myMonths = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
-  const myDays = [
-    "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"
-  ];
-  const tgl = new Date(numer);
-  const day = tgl.getDate();
-  const bulan = tgl.getMonth();
-  const thisDay = myDays[tgl.getDay()];
-  const yy = tgl.getFullYear();
-
-  return `${thisDay}, ${day} - ${myMonths[bulan]} - ${yy}`;
-};
-
-export const formatp = sizeFormatter({
-  std: "JEDEC",
-  decimalPlaces: 2,
-  keepTrailingZeroes: false,
-  render: (literal: any, symbol: any) => `${literal} ${symbol}B`,
-});
-
 export const jsonformat = (string: any): string => {
   return JSON.stringify(string, null, 2);
-};
-
-export const logic = (check: any, inp: any[], out: any[]): any => {
-  if (inp.length !== out.length) {
-    throw new Error("Input and Output must have same length");
-  }
-  for (let i in inp) {
-    if (util.isDeepStrictEqual(check, inp[i])) return out[i];
-  }
-  return null;
-};
-
-export const generateProfilePicture = async (buffer: Buffer): Promise<{ img: Buffer; preview: Buffer }> => {
-  const jimp: any = await Jimp.read(buffer as any);
-  const min = typeof jimp.getWidth === "function" ? jimp.getWidth() : jimp.width;
-  const max = typeof jimp.getHeight === "function" ? jimp.getHeight() : jimp.height;
-  const cropped = typeof jimp.crop === "function" ? (jimp.crop.length === 1 ? jimp.crop({ x: 0, y: 0, w: min, h: max }) : jimp.crop(0, 0, min, max)) : jimp;
-  return {
-    img: await cropped.scaleToFit({ w: 720, h: 720 }).getBuffer("image/jpeg" as any),
-    preview: await cropped.scaleToFit({ w: 720, h: 720 }).getBuffer("image/jpeg" as any),
-  };
 };
 
 export const bytesToSize = (bytes: number, decimals = 2): string => {

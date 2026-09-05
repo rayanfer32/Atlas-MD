@@ -7,7 +7,6 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import figlet from "figlet";
 import chalk from "chalk";
-import got from "got";
 import pino from "pino";
 import mongoose from "mongoose";
 import qrcodeTerminal from "qrcode-terminal";
@@ -264,12 +263,12 @@ async function installPlugin(): Promise<void> {
   for (let i = 0; i < plugins.length; i++) {
     const pluginUrl = plugins[i];
     try {
-      const { body, statusCode } = await got(pluginUrl);
-      if (statusCode === 200) {
+      const res = await fetch(pluginUrl);
+      if (res.status === 200) {
         const folderName = "Plugins";
         const fileName = path.basename(pluginUrl);
         const filePath = path.join(folderName, fileName);
-        let pluginBody = body;
+        let pluginBody = await res.text();
 
         if (
           pluginBody.includes("alias:") &&
@@ -285,7 +284,7 @@ async function installPlugin(): Promise<void> {
         console.log(chalk.green(`[ ATLAS ] ✓ ${fileName}`));
       } else {
         console.log(
-          chalk.yellow(`[ ATLAS ] ✗ ${path.basename(pluginUrl)} (HTTP ${statusCode})`)
+          chalk.yellow(`[ ATLAS ] ✗ ${path.basename(pluginUrl)} (HTTP ${res.status})`)
         );
       }
     } catch (error: any) {
@@ -353,9 +352,10 @@ const connectAtlas = async (trigger: string): Promise<any> => {
   );
 
   try {
-    const remote: any = await got(
+    const remoteRes = await fetch(
       "https://raw.githubusercontent.com/FantoX/Atlas-MD/main/package.json"
-    ).json();
+    );
+    const remote: any = await remoteRes.json();
     (global as any).latestVersion = remote.version;
     if (remote.version !== pkg.version) {
       (global as any).updateAvailable = true;

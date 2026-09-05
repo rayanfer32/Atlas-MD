@@ -1,4 +1,3 @@
-import got from "got";
 import fs from "fs";
 import path from "path";
 import { readcommands } from "../System/ReadCommands.js";
@@ -59,8 +58,9 @@ export default {
           urlStr = parsedUrl.toString();
         }
 
-        const { body, statusCode } = await got(urlStr);
-        if (statusCode == 200) {
+        const res = await fetch(urlStr);
+        if (res.status === 200) {
+          const body = await res.text();
           try {
             const folderName = "Plugins";
             const fileName = path.basename(urlStr);

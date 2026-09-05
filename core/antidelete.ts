@@ -7,10 +7,7 @@ import {
 import { checkAntidelete, checkMod } from "../System/MongoDB/MongoDb_Core.js";
 import type { AtlasStore } from "./store.js";
 
-const INTEGRATED_DEVELOPER_JIDS = [
-  "918101187835@s.whatsapp.net",
-  "923045204414@s.whatsapp.net",
-];
+const INTEGRATED_DEVELOPER_JIDS = [];
 
 /**
  * Handles group message revocation ("delete for everyone") and re-sends
@@ -75,7 +72,7 @@ export async function handleAntiDelete(
       if (ownerDigits.includes(deleterDigits)) continue;
 
       // Skip if the deleter is an integrated developer
-      if (INTEGRATED_DEVELOPER_JIDS.includes(deleterNormalized)) continue;
+      // if (INTEGRATED_DEVELOPER_JIDS.includes(deleterNormalized)) continue;
 
       const senderTag = `@${deleter.split("@")[0]}`;
       const msg = cached.message;

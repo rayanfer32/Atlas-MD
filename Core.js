@@ -4,8 +4,6 @@ import chalk from "chalk";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiConfig, GEMINI_MODEL } from "./System/systemPrompt.js";
-import { QuickDB, JSONDriver } from "quick.db";
-import Levels from "discord-xp";
 import {
   checkBan,
   checkMod,
@@ -17,11 +15,8 @@ import {
   checkGroupChatbot,
 } from "./System/MongoDB/MongoDb_Core.js";
 const prefix = global.prefa;
-global.Levels = Levels;
 export default async (Atlas, m, commands, chatUpdate) => {
   try {
-    const jsonDriver = new JSONDriver();
-    const db = new QuickDB({ driver: jsonDriver });
 
     let { type, isGroup, sender, from } = m;
     let body =
