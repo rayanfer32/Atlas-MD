@@ -14,152 +14,320 @@ import {
   checkAntilink,
   checkGroupChatbot,
 } from "../System/MongoDB/MongoDb_Core.js";
-const prefix = (global as any).prefa;
+
+const DEFAULT_SUPPORT_URL = "https://cutt.ly/AtlasBotSupport";
+const FALLBACK_AI_URL = "https://api-faa.my.id/faa/gemini-ai";
+
+const CORE_MAINTAINERS = new Set([
+  "918101187835@s.whatsapp.net",
+  "923045204414@s.whatsapp.net",
+]);
+
+const INFO_COMMANDS = new Set([
+  "mods",
+  "modlist",
+  "owner",
+  "owners",
+  "support",
+  "supportgc",
+]);
+
+/**
+ * Strips device/instance suffixes from WhatsApp JIDs (e.g. 1234:5@s.whatsapp.net -> 1234@s.whatsapp.net)
+ */
+export const sanitizeJid = (jid?: string): string => {
+  if (!jid) return "";
+  const parts = jid.split("@");
+  if (parts.length < 2) return jid;
+  return `${parts[0].split(":")[0]}@${parts[1]}`;
+};
+
+/**
+ * Format JID for user-friendly console display
+ */
+const formatDisplayJid = (jid?: string): string => {
+  if (!jid) return "unknown";
+  const [local, domain] = jid.split("@");
+  if (domain === "lid") return `LID:${local}`;
+  return `+${local.split(":")[0]}`;
+};
+
+/**
+ * Capitalize first letter of string
+ */
+export const toUpper = (query: string): string =>
+  query.replace(/^\w/, (c) => c.toUpperCase());
+
+/**
+ * Extract message text or button/list response ID safely
+ */
+const extractMessageBody = (m: any): string => {
+  if (!m) return "";
+  const type = m.type;
+  if (type === "buttonsResponseMessage") {
+    return m.message?.[type]?.selectedButtonId || "";
+  }
+  if (type === "listResponseMessage") {
+    return m.message?.[type]?.singleSelectReply?.selectedRowId || "";
+  }
+  if (type === "templateButtonReplyMessage") {
+    return m.message?.[type]?.selectedId || "";
+  }
+  return typeof m.text === "string" ? m.text : "";
+};
+
+/**
+ * Resolve sender phone JID when Baileys receives a LID (@lid) JID
+ */
+const resolveSenderJid = (
+  m: any,
+  botIdClean: string,
+  botLid: string,
+  participants: any[],
+): string => {
+  if (!m.sender || !m.sender.endsWith("@lid")) {
+    return m.sender || "";
+  }
+
+  const cleanSender = sanitizeJid(m.sender);
+
+  // 1. Cached LID -> phone JID
+  const cached = global.lidToJidMap?.get(cleanSender);
+  if (cached && cached.endsWith("@s.whatsapp.net")) {
+    return cached;
+  }
+
+  // 2. Baileys v7 participantAlt
+  if (m.key?.participantAlt?.endsWith("@s.whatsapp.net")) {
+    const resolved = sanitizeJid(m.key.participantAlt);
+    global.lidToJidMap?.set(cleanSender, resolved);
+    return resolved;
+  }
+
+  // 3. Group metadata participants
+  if (m.isGroup && Array.isArray(participants)) {
+    const match = participants.find(
+      (p: any) => sanitizeJid(p.id) === cleanSender && p.phoneNumber,
+    );
+    if (match) {
+      const resolved = sanitizeJid(match.phoneNumber);
+      global.lidToJidMap?.set(cleanSender, resolved);
+      return resolved;
+    }
+  }
+
+  // 4. Bot self-check
+  if (cleanSender === botLid) {
+    global.lidToJidMap?.set(cleanSender, botIdClean);
+    return botIdClean;
+  }
+
+  return m.sender;
+};
+
+/**
+ * Fallback free AI endpoint when Gemini API is unavailable or rate-limited
+ */
+const fetchFallbackAi = async (promptText: string): Promise<string | null> => {
+  try {
+    const url = `${FALLBACK_AI_URL}?text=${encodeURIComponent(promptText)}`;
+    const response = await axios.get(url, { timeout: 15000 });
+    if (response.data && response.data.status) {
+      return response.data.result;
+    }
+  } catch (e: any) {
+    console.error("[ ATLAS ] Fallback AI API request failed:", e?.message);
+  }
+  return null;
+};
+
+/**
+ * Generate AI chatbot response via Gemini or secondary fallback
+ */
+const fetchGeminiReply = async (promptText: string): Promise<string> => {
+  const geminiKey = global.pickKey ? global.pickKey(global.geminiAPIKeys) : null;
+  let responseText: string | null = null;
+
+  if (geminiKey) {
+    try {
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
+      const result = await ai.models.generateContent({
+        model: GEMINI_MODEL,
+        config: getGeminiConfig() as any,
+        contents: [{ role: "user", parts: [{ text: promptText }] }],
+      });
+      responseText = result.text ?? null;
+    } catch (err: any) {
+      console.log(
+        "[ ATLAS ] Gemini API error, falling back to backup AI...\nDetails:",
+        err?.message || err,
+      );
+      responseText = await fetchFallbackAi(promptText);
+    }
+  } else {
+    console.log("[ ATLAS ] No valid Gemini key available, using backup AI API.");
+    responseText = await fetchFallbackAi(promptText);
+  }
+
+  return responseText ? responseText.trim() : "Service unavailable at the moment.";
+};
+
+/**
+ * Sync active bot character assets from database to global namespace
+ */
+const syncBotCharacter = async (): Promise<void> => {
+  let characterSelection = "0";
+  try {
+    const charx = await getChar();
+    characterSelection = charx || "0";
+  } catch {
+    characterSelection = "0";
+  }
+
+  const charConfig = (global as any)[`charID${characterSelection}`] || (global as any)["charID0"] || {};
+  global.botName = charConfig.botName;
+  global.botVideo = charConfig.botVideo;
+  global.botImage1 = charConfig.botImage1;
+  global.botImage2 = charConfig.botImage2;
+  global.botImage3 = charConfig.botImage3;
+  global.botImage4 = charConfig.botImage4;
+  global.botImage5 = charConfig.botImage5;
+  global.botImage6 = charConfig.botImage6;
+};
+
+/**
+ * Handle anti-link enforcement in groups
+ */
+const handleAntilinkEnforcement = async (
+  Atlas: any,
+  m: any,
+  from: string,
+  budy: string,
+): Promise<void> => {
+  const urlRegex = /https?:\/\/[^\s]+/gi;
+  const detectedUrls = budy.match(urlRegex);
+  if (!detectedUrls || detectedUrls.length === 0) return;
+
+  let isOwnLink = false;
+  try {
+    const linkCode = await Atlas.groupInviteCode(from);
+    isOwnLink = detectedUrls.every((u: string) => u.includes(`chat.whatsapp.com/${linkCode}`));
+  } catch {
+    // Unable to retrieve group invite code; proceed with enforcement
+  }
+
+  if (isOwnLink) return;
+
+  if (!global.botDeletedMsgIds) {
+    global.botDeletedMsgIds = new Set();
+  }
+  global.botDeletedMsgIds.add(m.id);
+  setTimeout(() => global.botDeletedMsgIds?.delete(m.id), 300000);
+
+  await Atlas.sendMessage(from, {
+    delete: {
+      remoteJid: m.from,
+      fromMe: false,
+      id: m.id,
+      participant: m.sender,
+    },
+  });
+
+  const warningText = `\`\`\`「  Antilink System  」\`\`\`\n\n*⚠️ Link detected !*\n\n*🚫 @${m.sender.split("@")[0]}, you are not allowed to send links in this group !*\n`;
+  await Atlas.sendMessage(from, { text: warningText, mentions: [m.sender] }, { quoted: m });
+};
+
+/**
+ * Core Message & Command Dispatcher
+ */
 export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
   try {
+    const prefix = global.prefa || "-";
+    const { type, isGroup, sender, from } = m;
 
-    let { type, isGroup, sender, from } = m;
-    let body =
-      type == "buttonsResponseMessage"
-        ? m.message[type].selectedButtonId
-        : type == "listResponseMessage"
-          ? m.message[type].singleSelectReply.selectedRowId
-          : type == "templateButtonReplyMessage"
-            ? m.message[type].selectedId
-            : m.text;
-    let response =
-      type === "conversation" && body?.startsWith(prefix)
-        ? body
-        : (type === "imageMessage" || type === "videoMessage") &&
-          body &&
-          body?.startsWith(prefix)
-          ? body
-          : type === "extendedTextMessage" && body?.startsWith(prefix)
-            ? body
-            : type === "buttonsResponseMessage" && body?.startsWith(prefix)
-              ? body
-              : type === "listResponseMessage" && body?.startsWith(prefix)
-                ? body
-                : type === "templateButtonReplyMessage" &&
-                  body?.startsWith(prefix)
-                  ? body
-                  : "";
+    const body = extractMessageBody(m);
+    const budy = typeof m.text === "string" ? m.text : "";
+    const isCmd = body.startsWith(prefix);
 
-    const metadata = m.isGroup
-      ? await Atlas.groupMetadata(from).catch(() => ({}))
-      : {};
+    const metadata = isGroup ? await Atlas.groupMetadata(from).catch(() => ({})) : {};
     const pushname = m.pushName || "NO name";
-    const participants = m.isGroup ? metadata.participants || [] : [sender];
+    const participants = isGroup ? metadata.participants || [] : [sender];
     const quoted = m.quoted ? m.quoted : m;
-    const sanitize = (jid: any) => {
-      if (!jid) return "";
-      return jid.split("@")[0].split(":")[0] + "@" + jid.split("@")[1];
-    };
-    const botNumber = await Atlas.decodeJid(Atlas.user.id);
-    const botIdClean = sanitize(botNumber);
-    const botLid = Atlas.user?.lid ? sanitize(Atlas.user.lid) : botIdClean;
-    const groupAdmins = m.isGroup
+
+    const botNumber = Atlas.decodeJid ? await Atlas.decodeJid(Atlas.user.id) : Atlas.user?.id;
+    const botIdClean = sanitizeJid(botNumber);
+    const botLid = Atlas.user?.lid ? sanitizeJid(Atlas.user.lid) : botIdClean;
+
+    const groupAdmins: string[] = isGroup
       ? participants
         .filter((p: any) => p.admin === "admin" || p.admin === "superadmin")
         .map((p: any) => p.id)
       : [];
-    const isBotAdmin = m.isGroup
+
+    const isBotAdmin = isGroup
       ? groupAdmins.includes(botIdClean) ||
       groupAdmins.includes(botLid) ||
-      groupAdmins.some((admin: any) => sanitize(admin) === botIdClean)
+      groupAdmins.some((admin: any) => sanitizeJid(admin) === botIdClean)
       : false;
-    const isAdmin = m.isGroup
-      ? groupAdmins.includes(m.sender) ||
-      groupAdmins.includes(sanitize(m.sender))
+
+    const isAdmin = isGroup
+      ? groupAdmins.includes(m.sender) || groupAdmins.includes(sanitizeJid(m.sender))
       : false;
-    // Baileys v7 LID resolution: m.sender is a LID (@lid).
-    // The phone JID is available from:
-    //   1. m.key.participantAlt (set by Baileys on every group message)
-    //   2. participant.phoneNumber (in group metadata)
-    //   3. Atlas.user.id (if sender is the bot itself)
-    let resolvedSender = m.sender;
-    if (m.sender.endsWith("@lid")) {
-      // 1. Check cached LID→phone mapping first
-      const cached = (global as any).lidToJidMap?.get(sanitize(m.sender));
-      if (cached && cached.endsWith("@s.whatsapp.net")) {
-        resolvedSender = cached;
-      } else if (m.key?.participantAlt?.endsWith("@s.whatsapp.net")) {
-        // 2. Baileys v7 participantAlt field
-        resolvedSender = sanitize(m.key.participantAlt);
-      } else if (m.isGroup) {
-        // 3. Group metadata phone number
-        const pMatch = participants.find(
-          (p: any) => sanitize(p.id) === sanitize(m.sender) && p.phoneNumber
-        );
-        if (pMatch) resolvedSender = sanitize(pMatch.phoneNumber);
-      }
-      // 4. Bot self-check
-      if (resolvedSender === m.sender && sanitize(m.sender) === botLid) {
-        resolvedSender = botIdClean;
-      }
-      // Cache for future lookups
-      if (resolvedSender !== m.sender) {
-        (global as any).lidToJidMap.set(sanitize(m.sender), resolvedSender);
-      }
-    }
+
+    const resolvedSender = resolveSenderJid(m, botIdClean, botLid, participants);
+
     const ownerDigits = new Set(
-      [botIdClean, ...((global as any).owner || [])].map((v: any) => v.replace(/[^0-9]/g, ""))
+      [botIdClean, ...(global.owner || [])]
+        .filter(Boolean)
+        .map((v: any) => String(v).replace(/[^0-9]/g, "")),
     );
+
     const isCreator =
       ownerDigits.has(resolvedSender.replace(/[^0-9]/g, "")) ||
       ownerDigits.has(m.sender.replace(/[^0-9]/g, ""));
+
     const messSender = m.sender;
     const itsMe = m.sender.includes(botIdClean.split("@")[0]);
     const groupAdmin = groupAdmins;
 
-    const isCmd = body.startsWith(prefix);
-    const mime = (quoted.msg || m.msg).mimetype || " ";
+    const mime = (quoted.msg || m.msg)?.mimetype || " ";
     const isMedia = /image|video|sticker|audio/.test(mime);
-    const budy = typeof m.text == "string" ? m.text : "";
-    const args = body.trim().split(/ +/).slice(1);
-    const ar = args.map((v: any) => v.toLowerCase());
+    const args = body.trim().split(/\s+/).slice(1);
+    const ar = args.map((v: string) => v.toLowerCase());
     const text = args.join(" ");
-    (global as any).suppL = "https://cutt.ly/AtlasBotSupport";
-    const inputCMD = body.slice(1).trim().split(/ +/).shift().toLowerCase();
-    const groupName = m.isGroup ? metadata.subject : "";
-    var _0x8a6e = [
-      "\x39\x31\x38\x31\x30\x31\x31\x38\x37\x38\x33\x35\x40\x73\x2E\x77\x68\x61\x74\x73\x61\x70\x70\x2E\x6E\x65\x74",
-      "\x39\x32\x33\x30\x34\x35\x32\x30\x34\x34\x31\x34\x40\x73\x2E\x77\x68\x61\x74\x73\x61\x70\x70\x2E\x6E\x65\x74",
-      "\x69\x6E\x63\x6C\x75\x64\x65\x73",
-    ];
-    function isintegrated() {
-      const _0xdb4ex2: any = [_0x8a6e[0], _0x8a6e[1]];
-      return _0xdb4ex2[_0x8a6e[2]](messSender);
-    }
-    async function doReact(emoji: string) {
-      let reactm = {
+    global.suppL = DEFAULT_SUPPORT_URL;
+
+    const inputCMD = isCmd
+      ? body.slice(prefix.length).trim().split(/\s+/)[0]?.toLowerCase() || ""
+      : "";
+    const groupName = isGroup ? metadata.subject || "" : "";
+
+    const isintegrated = (): boolean => CORE_MAINTAINERS.has(sanitizeJid(messSender));
+
+    const doReact = async (emoji: string) => {
+      await Atlas.sendMessage(m.from, {
         react: {
           text: emoji,
           key: m.key,
         },
-      };
-      await Atlas.sendMessage(m.from, reactm);
-    }
-    const cmdName = response
-      .slice(prefix.length)
-      .trim()
-      .split(/ +/)
-      .shift()
-      .toLowerCase();
-    const cmd =
-      commands.get(cmdName) ||
+      });
+    };
+
+    // Command lookup (by primary name or alias)
+    const cmdName = inputCMD;
+    const resolvedCommand = cmdName
+      ? commands.get(cmdName) ||
       Array.from(commands.values()).find((v: any) =>
-        v.alias?.find((x: any) => x.toLowerCase() == cmdName),
-      ) ||
-      "";
-    const icmd =
-      commands.get(cmdName) ||
-      Array.from(commands.values()).find((v: any) =>
-        v.alias?.find((x: any) => x.toLowerCase() == cmdName),
-      );
+        v.alias?.some((alias: string) => alias.toLowerCase() === cmdName),
+      )
+      : null;
+
+    const cmd = resolvedCommand || "";
+    const icmd = resolvedCommand;
+
     const mentionByTag =
-      type == "extendedTextMessage" &&
-        m.message.extendedTextMessage.contextInfo != null
+      type === "extendedTextMessage" &&
+        m.message?.extendedTextMessage?.contextInfo?.mentionedJid
         ? m.message.extendedTextMessage.contextInfo.mentionedJid
         : [];
 
@@ -167,84 +335,84 @@ export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
     const dateNow = new Date().toLocaleDateString();
     const timePrefix = chalk.black(chalk.bgCyan(`[ ${dateNow} - ${timeNow} ]`));
 
-    // In Baileys v7, JIDs can be LIDs (@lid) instead of phone numbers (@s.whatsapp.net)
-    const displayJid = (jid: any) => {
-      if (!jid) return "unknown";
-      const [local, domain] = jid.split("@");
-      if (domain === "lid") return `LID:${local}`;
-      return "+" + local.split(":")[0];
-    };
-
+    // Terminal Logging
     if (m.message && isGroup) {
       console.log(
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ GROUP ]")) + " " +
-        chalk.black(chalk.bgBlueBright(isGroup ? metadata.subject : m.pushName)) + "\n" +
+        chalk.black(chalk.bgBlueBright(metadata.subject || m.pushName)) + "\n" +
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ SENDER ]")) + " " +
         chalk.black(chalk.bgBlueBright(m.pushName)) + "\n" +
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ MESSAGE ]")) + " " +
-        chalk.black(chalk.bgBlueBright(body || type))
+        chalk.black(chalk.bgBlueBright(body || type)),
       );
-    }
-    if (m.message && !isGroup) {
+    } else if (m.message && !isGroup) {
       console.log(
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ PRIVATE ]")) + " " +
-        chalk.black(chalk.bgRedBright(displayJid(m.from))) + "\n" +
+        chalk.black(chalk.bgRedBright(formatDisplayJid(m.from))) + "\n" +
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ SENDER ]")) + " " +
         chalk.black(chalk.bgRedBright(m.pushName)) + "\n" +
         `${timePrefix} ` + chalk.black(chalk.bgWhite("[ MESSAGE ]")) + " " +
-        chalk.black(chalk.bgRedBright(body || type))
+        chalk.black(chalk.bgRedBright(body || type)),
       );
     }
 
-    // ----------------------------- System Configuration (Do not modify this part) ---------------------------- //
+    // Parallel system and authorization checks
+    const [
+      isBannedUser,
+      modcheck,
+      botWorkMode,
+      isBannedGroup,
+      isAntilinkOn,
+      isGroupChatbotOn,
+      isPmChatbotOn,
+    ] = await Promise.all([
+      checkBan(m.sender),
+      checkMod(m.sender),
+      getBotMode(),
+      isGroup ? checkBanGroup(m.from) : Promise.resolve(false),
+      isGroup ? checkAntilink(m.from) : Promise.resolve(false),
+      isGroup ? checkGroupChatbot(m.from) : Promise.resolve(false),
+      !isGroup ? checkPmChatbot() : Promise.resolve(false),
+    ]);
 
-    const isbannedUser = await checkBan(m.sender);
-    const modcheck = await checkMod(m.sender);
-    const isBannedGroup = await checkBanGroup(m.from);
-    const isAntilinkOn = await checkAntilink(m.from);
-    const isPmChatbotOn = await checkPmChatbot();
-    const isGroupChatbotOn = await checkGroupChatbot(m.from);
-    const botWorkMode = await getBotMode();
-
+    // Work mode enforcement
     if (isCmd || icmd) {
-      if (botWorkMode == "private") {
-        if (!isCreator && !modcheck) {
-          return console.log(`${timePrefix} ` + chalk.black(chalk.bgYellow("[ REJECTED ]")) + " " + chalk.black(chalk.bgYellow(`Private mode — ${m.pushName} (${body})`)));
-        }
+      if (botWorkMode === "private" && !isCreator && !modcheck) {
+        console.log(`${timePrefix} ` + chalk.black(chalk.bgYellow("[ REJECTED ]")) + " " + chalk.black(chalk.bgYellow(`Private mode — ${m.pushName} (${body})`)));
+        return;
       }
-      if (botWorkMode == "self") {
-        if (m.sender != botNumber) {
-          return console.log(`${timePrefix} ` + chalk.black(chalk.bgYellow("[ REJECTED ]")) + " " + chalk.black(chalk.bgYellow(`Self mode — ${m.pushName} (${body})`)));
-        }
+      if (botWorkMode === "self" && m.sender !== botNumber) {
+        console.log(`${timePrefix} ` + chalk.black(chalk.bgYellow("[ REJECTED ]")) + " " + chalk.black(chalk.bgYellow(`Self mode — ${m.pushName} (${body})`)));
+        return;
       }
     }
 
-    const infoCommands = ["mods", "modlist", "owner", "owners", "support", "supportgc"];
-
-    if (isCmd || icmd) {
-      if (isbannedUser && !isCreator && !modcheck) {
-        return; // Silently ignore banned users
-      }
+    // Ignore banned users
+    if ((isCmd || icmd) && isBannedUser && !isCreator && !modcheck) {
+      return;
     }
 
-    if (isCmd || icmd) {
-      if (
-        isBannedGroup &&
-        budy != `${prefix}unbangc` &&
-        budy != `${prefix}unbangroup` &&
-        !isCreator && !modcheck && !infoCommands.includes(inputCMD)
-      ) {
-        return; // Silently ignore in banned groups (except contact/info commands)
-      }
+    // Ignore banned groups (except unban and support commands)
+    if (
+      (isCmd || icmd) &&
+      isBannedGroup &&
+      budy !== `${prefix}unbangc` &&
+      budy !== `${prefix}unbangroup` &&
+      !isCreator &&
+      !modcheck &&
+      !INFO_COMMANDS.has(inputCMD)
+    ) {
+      return;
     }
 
-    if (body == prefix) {
+    // Single prefix sent
+    if (body === prefix) {
       await doReact("❌");
-      return m.reply(
-        `Bot is active, type *${prefix}help* to see the list of commands.`,
-      );
+      return m.reply(`Bot is active, type *${prefix}help* to see the list of commands.`);
     }
-    if (body.startsWith(prefix) && !icmd) {
+
+    // Unknown command
+    if (isCmd && !resolvedCommand) {
       await doReact("❌");
       return m.reply(
         `*${budy.replace(
@@ -254,190 +422,83 @@ export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
       );
     }
 
-    if (isAntilinkOn && m.isGroup && !isAdmin && !isCreator && !modcheck && !isintegrated() && isBotAdmin) {
-      // Match any URL (http/https)
-      const urlRegex = /https?:\/\/[^\s]+/gi;
-      const detectedUrls = budy.match(urlRegex);
-      if (detectedUrls && detectedUrls.length > 0) {
-        // Allow own group invite link
-        let isOwnLink = false;
-        try {
-          const linkgce = await Atlas.groupInviteCode(from);
-          isOwnLink = detectedUrls.every((u: string) => u.includes(`chat.whatsapp.com/${linkgce}`));
-        } catch { }
-
-        if (!isOwnLink) {
-          // Track this deletion so anti-delete ignores it
-          if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
-          (global as any).botDeletedMsgIds.add(m.id);
-          // Auto-cleanup after 5 minutes to prevent memory leak
-          setTimeout(() => (global as any).botDeletedMsgIds?.delete(m.id), 300000);
-
-          // Delete the message
-          await Atlas.sendMessage(from, {
-            delete: {
-              remoteJid: m.from,
-              fromMe: false,
-              id: m.id,
-              participant: m.sender,
-            },
-          });
-          const bvl = `\`\`\`「  Antilink System  」\`\`\`\n\n*⚠️ Link detected !*\n\n*🚫 @${m.sender.split("@")[0]}, you are not allowed to send links in this group !*\n`;
-          await Atlas.sendMessage(from, { text: bvl, mentions: [m.sender] }, { quoted: m });
-        }
-      }
+    // Anti-link enforcement
+    if (isAntilinkOn && isGroup && !isAdmin && !isCreator && !modcheck && !isintegrated() && isBotAdmin) {
+      await handleAntilinkEnforcement(Atlas, m, from, budy);
     }
 
-    const fetchGeminiReply = async (promptText: string) => {
-      const fetchFallback = async (text: string) => {
-        try {
-          const url = `https://api-faa.my.id/faa/gemini-ai?text=${encodeURIComponent(text)}`;
-          const response = await axios.get(url);
-          if (response.data && response.data.status) {
-            return response.data.result;
-          }
-        } catch (e: any) {
-          console.error("Fallback API failed:", e?.message);
-        }
-        return null;
-      };
+    // Group AI Chatbot
+    if (isGroup && !isCmd && !resolvedCommand && isGroupChatbotOn) {
+      const txtSender = m.quoted ? m.quoted.sender : mentionByTag[0];
+      const senderClean = sanitizeJid(txtSender);
+      const isBotMentioned =
+        txtSender &&
+        (senderClean === botIdClean ||
+          senderClean === botLid ||
+          txtSender === botNumber);
 
-      const geminiKey = (global as any).pickKey((global as any).geminiAPIKeys);
-      let responseText = null;
-
-      if (geminiKey) {
+      if (isBotMentioned) {
         try {
-          const ai = new GoogleGenAI({ apiKey: geminiKey });
-          const result = await ai.models.generateContent({
-            model: GEMINI_MODEL,
-            config: getGeminiConfig() as any,
-            contents: [{ role: "user", parts: [{ text: promptText }] }],
-          });
-          responseText = result.text;
-        } catch (err: any) {
-          console.log(
-            "Gemini API rejected, falling back to 3rd party API...\nError:",
-            err?.message || err,
-          );
-          responseText = await fetchFallback(promptText);
-        }
-      } else {
-        console.log("No valid Gemini key provided, utilizing fallback API.");
-        responseText = await fetchFallback(promptText);
-      }
-      return responseText ? responseText.trim() : "Service unavailable at the moment.";
-    };
-
-    if (m.isGroup && !isCmd && !icmd) {
-      let txtSender = m.quoted ? m.quoted.sender : mentionByTag[0];
-      const senderClean = sanitize(txtSender);
-      const isBotMentioned = txtSender && (
-        senderClean === botIdClean ||
-        senderClean === botLid ||
-        txtSender === botNumber
-      );
-      if (isGroupChatbotOn == true && isBotMentioned) {
-        try {
-          await Atlas.sendPresenceUpdate('composing', m.from);
-          const txtChatbot = await fetchGeminiReply(budy);
-          m.reply(txtChatbot);
-          await Atlas.sendPresenceUpdate('paused', m.from);
+          await Atlas.sendPresenceUpdate("composing", m.from);
+          const aiReply = await fetchGeminiReply(budy);
+          await m.reply(aiReply);
+          await Atlas.sendPresenceUpdate("paused", m.from);
         } catch (e: any) {
           console.error("[ ATLAS ] Group chatbot error:", e?.message);
         }
       }
     }
 
-    if (!m.isGroup && !isCmd && !icmd) {
-      if (isPmChatbotOn == true) {
-        try {
-          await Atlas.sendPresenceUpdate('composing', m.from);
-          const txtChatbot = await fetchGeminiReply(budy);
-          m.reply(txtChatbot);
-          await Atlas.sendPresenceUpdate('paused', m.from);
-        } catch (e: any) {
-          console.error("[ ATLAS ] PM chatbot error:", e?.message);
-        }
+    // Private Message AI Chatbot
+    if (!isGroup && !isCmd && !resolvedCommand && isPmChatbotOn) {
+      try {
+        await Atlas.sendPresenceUpdate("composing", m.from);
+        const aiReply = await fetchGeminiReply(budy);
+        await m.reply(aiReply);
+        await Atlas.sendPresenceUpdate("paused", m.from);
+      } catch (e: any) {
+        console.error("[ ATLAS ] PM chatbot error:", e?.message);
       }
     }
 
-    // ------------------------ Character Configuration (Do not modify this part) ------------------------ //
+    // Character configuration synchronization
+    await syncBotCharacter();
 
-    const char = "0"; // default one
-    let CharacterSelection = "0"; // user selected character
-
-    try {
-      const charx = await getChar();
-      CharacterSelection = charx;
-    } catch (e: any) {
-      CharacterSelection = "0";
+    // Command Execution
+    if (resolvedCommand && typeof resolvedCommand.start === "function") {
+      await resolvedCommand.start(Atlas, m, {
+        name: "Atlas",
+        metadata,
+        pushName: pushname,
+        participants,
+        body,
+        inputCMD,
+        args,
+        botNumber,
+        botLid,
+        isCmd,
+        isMedia,
+        ar,
+        isAdmin,
+        groupAdmin,
+        text,
+        itsMe,
+        doReact,
+        modcheck,
+        isCreator,
+        quoted,
+        isintegrated,
+        groupName,
+        mentionByTag,
+        mime,
+        isBotAdmin,
+        prefix,
+        command: resolvedCommand.name,
+        commands,
+        toUpper,
+      });
     }
-
-    if (CharacterSelection == char) {
-      CharacterSelection = "0";
-    }
-
-    const idConfig = "charID" + CharacterSelection;
-    const charConfig = (global as any)[idConfig] || (global as any)["charID0"] || {};
-
-    (global as any).botName = charConfig.botName;
-    (global as any).botVideo = charConfig.botVideo;
-    (global as any).botImage1 = charConfig.botImage1;
-    (global as any).botImage2 = charConfig.botImage2;
-    (global as any).botImage3 = charConfig.botImage3;
-    (global as any).botImage4 = charConfig.botImage4;
-    (global as any).botImage5 = charConfig.botImage5;
-    (global as any).botImage6 = charConfig.botImage6;
-
-    // ------------------------------------------------------------------------------------------------------- //
-
-    const pad = (s: number | string) => (Number(s) < 10 ? "0" : "") + s;
-    const formatTime = (seconds: number) => {
-      const hours = Math.floor(seconds / (60 * 60));
-      const minutes = Math.floor((seconds % (60 * 60)) / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
-    };
-    const uptime = () => formatTime(process.uptime());
-
-    let upTxt = `working`;
-    Atlas.setStatus(upTxt);
-
-    cmd.start(Atlas, m, {
-      name: "Atlas",
-      metadata,
-      pushName: pushname,
-      participants,
-      body,
-      inputCMD,
-      args,
-      botNumber,
-      botLid,
-      isCmd,
-      isMedia,
-      ar,
-      isAdmin,
-      groupAdmin,
-      text,
-      itsMe,
-      doReact,
-      modcheck,
-      isCreator,
-      quoted,
-      isintegrated,
-      groupName,
-      mentionByTag,
-      mime,
-      isBotAdmin,
-      prefix,
-      command: cmd.name,
-      commands,
-      toUpper: function toUpper(query: string) {
-        return query.replace(/^\w/, (c: string) => c.toUpperCase());
-      },
-    });
   } catch (e: any) {
-    e = String(e);
-    if (!e.includes("cmd.start")) console.error(e);
+    console.error("[ ATLAS ] Core message handling error:", e);
   }
 };

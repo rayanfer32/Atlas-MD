@@ -1,71 +1,147 @@
 import dotenv from "dotenv";
 dotenv.config({ override: true });
 
-// Strip inline # comments that some env injectors (e.g. vestauth) leave in the value,
-// then trim surrounding whitespace.
-// Example: "mykey     #old-key  # note" → "mykey"
-const stripEnv = (val?: string, fallback = ""): string => {
+/**
+ * Strip inline comments (#...) and quotes from an environment variable, then trim whitespace.
+ * Example: '  "mykey"     # old-key  ' → "mykey"
+ */
+export const stripEnv = (val?: string, fallback = ""): string => {
   if (!val) return fallback;
-  return val.split("#")[0].trim() || fallback;
+  const stripped = val.split("#")[0].trim();
+  if (!stripped) return fallback;
+
+  // Remove surrounding single or double quotes if present
+  if (
+    (stripped.startsWith('"') && stripped.endsWith('"')) ||
+    (stripped.startsWith("'") && stripped.endsWith("'"))
+  ) {
+    return stripped.slice(1, -1).trim() || fallback;
+  }
+
+  return stripped;
 };
 
-// Parse a comma-separated env value into a cleaned array, dropping known placeholders
-const parseKeys = (envVal?: string, ...placeholders: string[]): string[] => {
+/**
+ * Parse a comma-separated env value into a cleaned string array, dropping known placeholders.
+ */
+export const parseKeys = (envVal?: string, ...placeholders: string[]): string[] => {
   if (!envVal) return [];
+  const placeholderSet = new Set(placeholders.map((p) => p.toLowerCase().trim()));
+
   return envVal
     .split(",")
-    .map((k: string) => k.trim())
-    .filter((k: string) => k && !placeholders.includes(k));
+    .map((k) => stripEnv(k))
+    .filter((k) => k && !placeholderSet.has(k.toLowerCase()));
 };
 
-// Pick a random key from a pool; returns null when pool is empty
-(global as any).pickKey = (keys?: string[]): string | null => {
+/**
+ * Pick a random key from a pool; returns null when pool is empty.
+ */
+export const pickKey = (keys?: string[]): string | null => {
   if (!keys || keys.length === 0) return null;
   return keys[Math.floor(Math.random() * keys.length)];
 };
 
-let gg = process.env.MODS;
-if (!gg) {
-  throw new Error("Please provide MODS in the environment variables");
+// Validate and parse bot owners / moderators
+const rawMods = process.env.MODS;
+if (!rawMods || !rawMods.trim()) {
+  throw new Error("Please provide MODS in the environment variables (e.g. MODS=1234567890)");
 }
 
-(global as any).owner = gg.split(",");
-(global as any).mongodb = process.env.MONGODB || "mongodb://localhost:27017/atlas";
-(global as any).sessionId = stripEnv(process.env.SESSION_ID, "ok");
-(global as any).prefa = stripEnv(process.env.PREFIX, "-");
-(global as any).packname = stripEnv(process.env.PACKNAME, `Atlas Bot`);
-(global as any).author = stripEnv(process.env.AUTHOR, "by: Team Atlas");
-(global as any).port = stripEnv(process.env.PORT, "10000");
+const owner = parseKeys(rawMods);
+if (owner.length === 0) {
+  throw new Error("MODS environment variable is defined but contains no valid owner numbers");
+}
 
-// Multi-key pools — comma-separate as many keys as you want in .env
-(global as any).geminiAPIKeys = parseKeys(
+const DEFAULT_TENOR_KEY = "AIzaSyCyouca1_KKy4W_MG1xsPzuku5oa8W358c";
+
+const mongodb = stripEnv(process.env.MONGODB, "mongodb://localhost:27017/atlas");
+const sessionId = stripEnv(process.env.SESSION_ID, "ok");
+const prefix = stripEnv(process.env.PREFIX, "-");
+const packname = stripEnv(process.env.PACKNAME, "Atlas Bot");
+const author = stripEnv(process.env.AUTHOR, "by: Team Atlas");
+const port = stripEnv(process.env.PORT, "10000");
+
+// Multi-key pools — comma-separate keys in .env
+const geminiAPIKeys = parseKeys(
   process.env.GEMINI_API,
   "Put your gemini API key here",
   "your-gemini-api-key-here",
 );
-(global as any).openAiAPIKeys = parseKeys(
+const openAiAPIKeys = parseKeys(
   process.env.OPENAI_API,
   "Put your openai API key here",
   "sk-...put your OpenAI API key",
 );
-(global as any).claudeAPIKeys = parseKeys(
+const claudeAPIKeys = parseKeys(
   process.env.CLAUDE_API,
   "Put your claude API key here",
   "your-anthropic-api-key-here",
 );
-(global as any).tenorAPIKeys = parseKeys(
-  process.env.TENOR_API_KEY || "AIzaSyCyouca1_KKy4W_MG1xsPzuku5oa8W358c",
-);
+const tenorAPIKeys = parseKeys(process.env.TENOR_API_KEY || DEFAULT_TENOR_KEY);
 
-// Dynamic getter — every access to `tenorApiKey` (used in Plugins) returns a random key from the pool
+// Ambient TypeScript typings for globals attached throughout the app lifecycle that are not in ambient.d.ts
+declare global {
+  var mongodb: string;
+  var sessionId: string;
+  var port: string;
+  var geminiAPIKeys: string[];
+  var openAiAPIKeys: string[];
+  var claudeAPIKeys: string[];
+  var tenorAPIKeys: string[];
+  var pickKey: (keys?: string[]) => string | null;
+  var isSleeping: boolean;
+  var justWokeUp: boolean;
+}
+
+// Populate global namespace for legacy plugins and runtime consumers
+global.pickKey = pickKey;
+global.owner = owner;
+global.mongodb = mongodb;
+global.sessionId = sessionId;
+global.prefa = prefix;
+global.packname = packname;
+global.author = author;
+global.port = port;
+global.geminiAPIKeys = geminiAPIKeys;
+global.openAiAPIKeys = openAiAPIKeys;
+global.claudeAPIKeys = claudeAPIKeys;
+global.tenorAPIKeys = tenorAPIKeys;
+
+// Dynamic getter — every access to `tenorApiKey` returns a random key from the pool
 Object.defineProperty(global, "tenorApiKey", {
   get() {
-    return (global as any).pickKey((global as any).tenorAPIKeys) || "AIzaSyCyouca1_KKy4W_MG1xsPzuku5oa8W358c";
+    return pickKey(global.tenorAPIKeys) || DEFAULT_TENOR_KEY;
   },
   configurable: true,
 });
 
-export default {
-  mongodb: (global as any).mongodb as string,
-};
+export interface BotConfig {
+  mongodb: string;
+  owner: string[];
+  sessionId: string;
+  prefix: string;
+  packname: string;
+  author: string;
+  port: string;
+  geminiAPIKeys: string[];
+  openAiAPIKeys: string[];
+  claudeAPIKeys: string[];
+  tenorAPIKeys: string[];
+}
 
+export const config: BotConfig = Object.freeze({
+  mongodb,
+  owner,
+  sessionId,
+  prefix,
+  packname,
+  author,
+  port,
+  geminiAPIKeys,
+  openAiAPIKeys,
+  claudeAPIKeys,
+  tenorAPIKeys,
+});
+
+export default config;
