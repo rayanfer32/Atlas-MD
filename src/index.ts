@@ -20,8 +20,15 @@ export {
 
 export {
   sanitizeJid,
-  toUpper,
 } from "../core/core.js";
+
+export {
+  defaultPlugins,
+} from "./plugins/index.js";
+
+export {
+  startAtlas,
+} from "../index.js";
 
 import { AtlasBot } from "../core/AtlasBot.js";
 export default AtlasBot;

@@ -11,13 +11,12 @@
       "import": "./dist/index.js"
     },
     "./plugins": {
-      "types": "./dist/core/plugin.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/plugins/index.d.ts",
+      "import": "./dist/plugins/index.js"
     }
   },
   "files": [
     "dist",
-    "Plugins",
     "README.md",
     "LICENSE"
   ],

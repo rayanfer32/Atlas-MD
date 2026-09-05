@@ -3,7 +3,7 @@ import axios from "axios";
 import path from "path";
 import { pathToFileURL } from "url";
 import os from "os";
-import { readcommands } from "../System/ReadCommands.js";
+import { readcommands, commands } from "../System/ReadCommands.js";
 let mergedCommands = [
   "help",
   "h",
@@ -296,7 +296,23 @@ export default {
         const uptimeStr = `${upH}h ${upM}m ${upS}s`;
 
         const pluginsDir = path.join(process.cwd(), "Plugins");
-        const allCommands = await readUniqueCommands(pluginsDir);
+        let allCommands: string[][] = [];
+        if (fs.existsSync(pluginsDir)) {
+          allCommands = await readUniqueCommands(pluginsDir);
+        } else {
+          const seen = new Set();
+          for (const cmdObj of commands.values()) {
+            if (cmdObj && !seen.has(cmdObj)) {
+              seen.add(cmdObj);
+              const list = Array.isArray(cmdObj.uniquecommands) && cmdObj.uniquecommands.length
+                ? cmdObj.uniquecommands
+                : Array.isArray(cmdObj.alias) && cmdObj.alias.length
+                  ? cmdObj.alias
+                  : [cmdObj.name];
+              allCommands.push([cmdObj.name, ...list]);
+            }
+          }
+        }
         const totalCmds = allCommands.reduce(
           (acc: number, arr: string[]) => acc + arr.length - 1,
           0,

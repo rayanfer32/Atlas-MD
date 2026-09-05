@@ -7,6 +7,8 @@ import mongoose from "mongoose";
 import config, { type BotConfig } from "./configurations.js";
 import { commands as globalCommands, type CommandCollection } from "../System/ReadCommands.js";
 import type { Plugin } from "./plugin.js";
+import { defaultPlugins } from "../src/plugins/index.js";
+import { startAtlas } from "../index.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -153,22 +155,12 @@ export class AtlasBot extends EventEmitter {
    * Load standard built-in plugins bundled with Atlas-MD
    */
   public async useDefaultPlugins(): Promise<this> {
-    // Locate default Plugins relative to package directory
-    const defaultPluginsPath = path.resolve(__dirname, "../../Plugins");
-    const fallbackPath = path.resolve(__dirname, "../Plugins");
-
-    const targetDir = fs.existsSync(defaultPluginsPath)
-      ? defaultPluginsPath
-      : fs.existsSync(fallbackPath)
-        ? fallbackPath
-        : path.resolve(process.cwd(), "Plugins");
-
-    if (fs.existsSync(targetDir)) {
-      const count = await this.loadPluginsFromDir(targetDir);
-      console.log(chalk.green(`[ ATLAS ] Loaded ${count} built-in default plugins from ${targetDir}`));
-    } else {
-      console.warn(chalk.yellow(`[ ATLAS ] Default plugins directory not found.`));
+    for (const plugin of defaultPlugins) {
+      if (plugin && plugin.name) {
+        this.register(plugin);
+      }
     }
+    console.log(chalk.green(`[ ATLAS ] Loaded ${defaultPlugins.length} built-in default plugins`));
     return this;
   }
 
@@ -196,7 +188,6 @@ export class AtlasBot extends EventEmitter {
     }
 
     // Launch core socket runner
-    const { startAtlas } = await import("../index.js");
     this.socketInstance = await startAtlas();
     this.emit("started", this.socketInstance);
     return this.socketInstance;

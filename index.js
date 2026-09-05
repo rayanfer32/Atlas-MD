@@ -1,1 +1,1 @@
-import "./index.ts";
+export * from "./index.ts";
