@@ -1,0 +1,85 @@
+import {
+  extractMessageContent,
+  jidNormalizedUser,
+  getContentType,
+  proto,
+  downloadContentFromMessage,
+} from "@whiskeysockets/baileys";
+import fs from "fs";
+import { fileTypeFromBuffer } from "file-type";
+import { getRandom } from "./functions.js";
+
+export const serialize = (Atlas: any, m: any, options = {}) => {
+  if (!m) return m;
+  const M = proto.WebMessageInfo;
+  m = M.create(m);
+  if (m.key) {
+    m.from = jidNormalizedUser(m.key.remoteJid || m.key.participant);
+    m.fromMe = m.key.fromMe;
+    m.id = m.key.id;
+    m.isBot = m.id?.startsWith("BAE5") && m.id.length === 16;
+    m.isGroup = m.from?.endsWith("@g.us");
+    m.sender = jidNormalizedUser(
+      (m.fromMe && Atlas.user?.id) || m.key.participant || m.from || ""
+    );
+  }
+  if (m.message) {
+    m.type = getContentType(m.message);
+    m.message = extractMessageContent(m.message);
+    m.msg = m.message[m.type];
+    m.mentions = m.msg?.contextInfo ? m.msg?.contextInfo.mentionedJid : [];
+    m.quoted = m.msg?.contextInfo ? m.msg?.contextInfo.quotedMessage : null;
+    if (m.quoted) {
+      m.quoted.type = getContentType(m.quoted);
+      m.quoted.msg = m.quoted[m.quoted.type];
+      m.quoted.mentions = m.msg?.contextInfo?.mentionedJid || [];
+      m.quoted.id = m.msg?.contextInfo?.stanzaId;
+      m.quoted.sender = jidNormalizedUser(
+        m.msg?.contextInfo?.participant || m.sender
+      );
+      m.quoted.from = m.from;
+      m.quoted.isGroup = m.quoted.from?.endsWith("@g.us");
+      m.quoted.isBot = m.quoted.id?.startsWith("BAE5") && m.quoted.id.length === 16;
+      m.quoted.fromMe =
+        m.quoted.sender === jidNormalizedUser(Atlas.user && Atlas.user?.id);
+      m.quoted.text =
+        m.quoted.msg?.text ||
+        m.quoted.msg?.caption ||
+        m.quoted.msg?.conversation ||
+        m.quoted.msg?.contentText ||
+        m.quoted.msg?.selectedDisplayText ||
+        m.quoted.msg?.title ||
+        "";
+      const vM = (m.quoted.fakeObj = M.create({
+        key: {
+          remoteJid: m.quoted.from,
+          fromMe: m.quoted.fromMe,
+          id: m.quoted.id,
+        },
+        message: m.quoted,
+        ...(m.quoted.isGroup ? { participant: m.quoted.sender } : {}),
+      }));
+      m.quoted.delete = () =>
+        Atlas.sendMessage(m.quoted.from, { delete: vM.key });
+      m.quoted.download = (pathFile?: string) =>
+        Atlas.downloadMediaMessage(m.quoted.msg, pathFile);
+    }
+  }
+  m.download = (pathFile?: string) => Atlas.downloadMediaMessage(m.msg, pathFile);
+  m.body = m.text =
+    m.message?.conversation ||
+    m.message?.[m.type]?.text ||
+    m.message?.[m.type]?.caption ||
+    m.message?.[m.type]?.contentText ||
+    m.message?.[m.type]?.selectedDisplayText ||
+    m.message?.[m.type]?.title ||
+    "";
+  m.reply = (text: string | Buffer, chatId = m.from, options = {}) =>
+    Buffer.isBuffer(text)
+      ? Atlas.sendFile(chatId, text, "file", "", m, { ...options })
+      : Atlas.sendText(chatId, text, m, { ...options });
+
+  return m;
+};
+
+export default serialize;

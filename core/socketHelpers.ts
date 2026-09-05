@@ -7,7 +7,7 @@ import {
   downloadContentFromMessage,
   downloadMediaMessage,
 } from "@whiskeysockets/baileys";
-import { smsg, getBuffer, getSizeMedia } from "../System/Function2.js";
+import { smsg, getBuffer, getSizeMedia } from "../System/functions.js";
 import type { AtlasStore } from "./store.js";
 
 const __filename = fileURLToPath(import.meta.url);

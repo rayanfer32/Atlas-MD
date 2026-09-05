@@ -1,7 +1,7 @@
 import axios from "axios";
 import fs from "fs";
 import FormData from "form-data";
-import { getBuffer } from "../System/Function2.js";
+import { getBuffer } from "../System/functions.js";
 import url from "url";
 import { checkMod } from "../System/MongoDB/MongoDb_Core.js";
 import https from "https";

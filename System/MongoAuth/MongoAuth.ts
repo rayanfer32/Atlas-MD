@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { useMultiFileAuthState, BufferJSON } from "@whiskeysockets/baileys";
+import { useMultiFileAuthState, BufferJSON, type AuthenticationState } from "@whiskeysockets/baileys";
 import { sessionSchema } from "./Schema/index.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -10,7 +10,7 @@ const __dirname = path.dirname(__filename);
 // All local sessions live under System/session/<sessionId>/
 const SESSION_BASE_DIR = path.join(__dirname, "..", "session");
 
-const LEGACY_KEY_TYPE_MAP = {
+const LEGACY_KEY_TYPE_MAP: Record<string, string> = {
   preKeys: "pre-key",
   sessions: "session",
   senderKeys: "sender-key",
@@ -19,11 +19,17 @@ const LEGACY_KEY_TYPE_MAP = {
   senderKeyMemory: "sender-key-memory",
 };
 
+export interface MongoAuthResult {
+  state: AuthenticationState;
+  saveCreds: () => Promise<void>;
+  clearState: () => Promise<void>;
+}
+
 export default class MongoAuth {
-  /**
-   * @param {string} sessionId
-   */
-  constructor(sessionId) {
+  sessionId: string;
+  dir: string;
+
+  constructor(sessionId: string) {
     this.sessionId = sessionId;
     this.dir = path.join(SESSION_BASE_DIR, sessionId);
   }
@@ -32,7 +38,7 @@ export default class MongoAuth {
    * Initialize auth state using local → MongoDB → QR priority.
    * Returns { state, saveCreds, clearState } for makeWASocket.
    */
-  async init() {
+  async init(): Promise<MongoAuthResult> {
     console.log(`[ ATLAS ] Starting session: "${this.sessionId}"`);
 
     const localExists = await this._localExists();
@@ -46,7 +52,7 @@ export default class MongoAuth {
 
         try {
           await this._downloadToLocal();
-        } catch (err) {
+        } catch (err: any) {
           console.error(
             `[ EXCEPTION ] [${this.sessionId}] Session download failed: ${err.message} — wiping partial files.`,
           );
@@ -80,16 +86,16 @@ export default class MongoAuth {
       this.dir,
     );
 
-    const saveCreds = async () => {
+    const saveCreds = async (): Promise<void> => {
       await saveCredsLocal();
-      await this.pushToMongoDB().catch((err) =>
+      await this.pushToMongoDB().catch((err: any) =>
         console.error(
           `[ EXCEPTION ] MongoDB session sync error: ${err.message}`,
         ),
       );
     };
 
-    const clearState = async () => {
+    const clearState = async (): Promise<void> => {
       await this._clearSession();
     };
 
@@ -100,18 +106,18 @@ export default class MongoAuth {
    * Push all local session files to MongoDB.
    * Called by the periodic background sync (GC interval).
    */
-  async pushToMongoDB() {
+  async pushToMongoDB(): Promise<void> {
     const localExists = await this._localExists();
     if (!localExists) return;
 
-    let entries;
+    let entries: string[];
     try {
       entries = await fs.promises.readdir(this.dir);
     } catch {
       return;
     }
 
-    const files = {};
+    const files: Record<string, string> = {};
     for (const entry of entries) {
       const filePath = path.join(this.dir, entry);
       try {
@@ -134,7 +140,7 @@ export default class MongoAuth {
     );
   }
 
-  async _localExists() {
+  async _localExists(): Promise<boolean> {
     const credsPath = path.join(this.dir, "creds.json");
     try {
       await fs.promises.access(credsPath);
@@ -144,14 +150,14 @@ export default class MongoAuth {
     }
   }
 
-  async _mongoExists() {
+  async _mongoExists(): Promise<boolean> {
     try {
       const doc = await sessionSchema.findOne({ sessionId: this.sessionId });
       if (!doc) return false;
       if (
         doc.files &&
         Object.keys(doc.files).some(
-          (k) => doc.files[k] && doc.files[k].length > 0,
+          (k) => doc.files && doc.files[k] && doc.files[k].length > 0,
         )
       )
         return true;
@@ -162,7 +168,7 @@ export default class MongoAuth {
     }
   }
 
-  async _downloadToLocal() {
+  async _downloadToLocal(): Promise<void> {
     const doc = await sessionSchema.findOne({ sessionId: this.sessionId });
     if (!doc) return;
 
@@ -193,11 +199,11 @@ export default class MongoAuth {
    * useMultiFileAuthState can read, then push the new format to MongoDB.
    * @param {string} legacySessionString  The old `session` field value
    */
-  async _migrateLegacySession(legacySessionString) {
-    let parsed;
+  async _migrateLegacySession(legacySessionString: string): Promise<void> {
+    let parsed: any;
     try {
       parsed = JSON.parse(legacySessionString, BufferJSON.reviver);
-    } catch (err) {
+    } catch (err: any) {
       console.error(
         `[ EXCEPTION ] Failed to parse legacy session blob: ${err.message}`,
       );
@@ -233,7 +239,7 @@ export default class MongoAuth {
     await this.pushToMongoDB();
   }
 
-  async _clearSession() {
+  async _clearSession(): Promise<void> {
     await fs.promises.rm(this.dir, { recursive: true, force: true });
 
     try {

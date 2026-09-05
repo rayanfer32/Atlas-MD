@@ -505,7 +505,7 @@ export default {
         ];
 
         const checkChar = await getChar();
-        if (checkChar === intinput) {
+        if (checkChar === String(intinput)) {
           await doReact("✅");
           return Atlas.sendMessage(
             m.from,

@@ -3,7 +3,7 @@ import "./System/BotCharacters.js";
 import chalk from "chalk";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
-import { getGeminiConfig, GEMINI_MODEL } from "./System/__system_prompt.js";
+import { getGeminiConfig, GEMINI_MODEL } from "./System/systemPrompt.js";
 import { QuickDB, JSONDriver } from "quick.db";
 import Levels from "discord-xp";
 import {

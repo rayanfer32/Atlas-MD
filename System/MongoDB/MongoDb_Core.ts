@@ -3,12 +3,11 @@ import {
   groupData,
   systemData,
   pluginData,
-} from "../MongoDB/MongoDB_Schema.js";
-import mongoose from "mongoose";
+} from "./MongoDB_Schema.js";
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
 // TTLs are configurable via env; sensible defaults shown below.
-const positiveEnvMs = (name, fallback) => {
+const positiveEnvMs = (name: string, fallback: number): number => {
   const value = Number.parseInt(process.env[name] || "", 10);
   return Number.isFinite(value) && value > 0 ? value : fallback;
 };
@@ -16,60 +15,85 @@ const USER_CACHE_TTL = positiveEnvMs("USER_CACHE_TTL_MS", 300_000); // 5 min
 const GROUP_CACHE_TTL = positiveEnvMs("GROUP_CACHE_TTL_MS", 300_000); // 5 min
 const SYSTEM_CACHE_TTL = positiveEnvMs("SYS_CACHE_TTL_MS", 600_000); // 10 min
 
+interface UserCacheEntry {
+  ban?: boolean;
+  addedMods?: boolean;
+  expiresAt: number;
+}
+
+interface GroupCacheEntry {
+  antilink?: boolean;
+  antidelete?: boolean;
+  bangroup?: boolean;
+  chatBot?: boolean;
+  switchWelcome?: boolean;
+  nsfw?: boolean;
+  expiresAt: number;
+}
+
+interface SystemCacheEntry {
+  data: {
+    seletedCharacter?: string;
+    PMchatBot?: boolean;
+    botMode?: string;
+  } | null;
+  expiresAt: number;
+}
+
 // user cache  : Map<userId, { ban, addedMods, expiresAt }>
 // group cache : Map<groupId, { antilink, bangroup, chatBot, switchWelcome, expiresAt }>
 // system cache: single object (one "id: 1" row)
-const userCache = new Map();
-const groupCache = new Map();
-let systemCache = { data: null, expiresAt: 0 };
+const userCache = new Map<string, UserCacheEntry>();
+const groupCache = new Map<string, GroupCacheEntry>();
+let systemCache: SystemCacheEntry = { data: null, expiresAt: 0 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-function _getUser(userId) {
+function _getUser(userId: string): UserCacheEntry | null {
   const e = userCache.get(userId);
   if (e && Date.now() < e.expiresAt) return e;
   if (e) userCache.delete(userId);
   return null;
 }
-function _setUser(userId, fields) {
-  const prev = userCache.get(userId) || {};
+function _setUser(userId: string, fields: Partial<UserCacheEntry>): void {
+  const prev = userCache.get(userId) || ({} as Partial<UserCacheEntry>);
   userCache.set(userId, {
     ...prev,
     ...fields,
     expiresAt: Date.now() + USER_CACHE_TTL,
   });
 }
-function _delUser(userId) {
+function _delUser(userId: string): void {
   userCache.delete(userId);
 }
 
-function _getGroup(groupId) {
+function _getGroup(groupId: string): GroupCacheEntry | null {
   const e = groupCache.get(groupId);
   if (e && Date.now() < e.expiresAt) return e;
   if (e) groupCache.delete(groupId);
   return null;
 }
-function _setGroup(groupId, fields) {
-  const prev = groupCache.get(groupId) || {};
+function _setGroup(groupId: string, fields: Partial<GroupCacheEntry>): void {
+  const prev = groupCache.get(groupId) || ({} as Partial<GroupCacheEntry>);
   groupCache.set(groupId, {
     ...prev,
     ...fields,
     expiresAt: Date.now() + GROUP_CACHE_TTL,
   });
 }
-function _delGroup(groupId) {
+function _delGroup(groupId: string): void {
   groupCache.delete(groupId);
 }
 
-function _getSys() {
+function _getSys(): SystemCacheEntry["data"] {
   return systemCache.data && Date.now() < systemCache.expiresAt
     ? systemCache.data
     : null;
 }
-function _setSys(fields) {
+function _setSys(fields: Partial<NonNullable<SystemCacheEntry["data"]>>): void {
   systemCache.data = { ...(systemCache.data || {}), ...fields };
   systemCache.expiresAt = Date.now() + SYSTEM_CACHE_TTL;
 }
-function _delSys() {
+function _delSys(): void {
   systemCache.data = null;
   systemCache.expiresAt = 0;
 }
@@ -92,7 +116,7 @@ cacheSweepTimer.unref?.();
 // ─── User Functions ───────────────────────────────────────────────────────────
 
 // BAN USER
-async function banUser(userId) {
+async function banUser(userId: string): Promise<void> {
   const user = await userData.findOne({ id: userId });
   if (!user) {
     await userData.create({ id: userId, ban: true });
@@ -108,7 +132,7 @@ async function banUser(userId) {
 }
 
 // CHECK BAN STATUS
-async function checkBan(userId) {
+async function checkBan(userId: string): Promise<boolean> {
   const cached = _getUser(userId);
   if (cached) return cached.ban ?? false;
 
@@ -122,7 +146,7 @@ async function checkBan(userId) {
 }
 
 // UNBAN USER
-async function unbanUser(userId) {
+async function unbanUser(userId: string): Promise<void> {
   const user = await userData.findOne({ id: userId });
   if (!user) {
     await userData.create({ id: userId, ban: false });
@@ -140,8 +164,8 @@ async function unbanUser(userId) {
 // ─── Mod Functions ────────────────────────────────────────────────────────────
 
 // ADD MOD
-async function addMod(userId) {
-  if (global.owner?.includes(userId)) return;
+async function addMod(userId: string): Promise<void> {
+  if ((global as any).owner?.includes(userId)) return;
   const user = await userData.findOne({ id: userId });
   if (!user) {
     await userData.create({ id: userId, addedMods: true });
@@ -160,8 +184,8 @@ async function addMod(userId) {
 }
 
 // CHECK MOD STATUS
-async function checkMod(userId) {
-  if (global.owner?.includes(userId)) return true;
+async function checkMod(userId: string): Promise<boolean> {
+  if ((global as any).owner?.includes(userId)) return true;
 
   const cached = _getUser(userId);
   if (cached) return cached.addedMods ?? false;
@@ -176,8 +200,8 @@ async function checkMod(userId) {
 }
 
 // DEL MOD
-async function delMod(userId) {
-  if (global.owner?.includes(userId)) return;
+async function delMod(userId: string): Promise<void> {
+  if ((global as any).owner?.includes(userId)) return;
   const user = await userData.findOne({ id: userId });
   if (!user) {
     await userData.create({ id: userId, addedMods: false });
@@ -198,21 +222,22 @@ async function delMod(userId) {
 // ─── System / Character Functions ────────────────────────────────────────────
 
 // SET CHAR ID
-async function setChar(charId) {
+async function setChar(charId: string | number): Promise<void> {
+  const strId = String(charId);
   const character = await systemData.findOne({ id: "1" });
   if (!character) {
-    await systemData.create({ id: "1", seletedCharacter: charId });
+    await systemData.create({ id: "1", seletedCharacter: strId });
   } else {
     await systemData.findOneAndUpdate(
       { id: "1" },
-      { $set: { seletedCharacter: charId } },
+      { $set: { seletedCharacter: strId } },
     );
   }
-  _setSys({ seletedCharacter: charId });
+  _setSys({ seletedCharacter: strId });
 }
 
 // GET CHAR ID
-async function getChar() {
+async function getChar(): Promise<string> {
   const cached = _getSys();
   if (cached?.seletedCharacter !== undefined) return cached.seletedCharacter;
 
@@ -232,7 +257,7 @@ async function getChar() {
 // ─── PM Chatbot Functions ─────────────────────────────────────────────────────
 
 // ACTIVATE PM CHATBOT
-async function activateChatBot() {
+async function activateChatBot(): Promise<void> {
   const chatbotpm = await systemData.findOne({ id: "1" });
   if (!chatbotpm) {
     await systemData.create({ id: "1", PMchatBot: true });
@@ -246,7 +271,7 @@ async function activateChatBot() {
 }
 
 // CHECK PM CHATBOT STATUS
-async function checkPmChatbot() {
+async function checkPmChatbot(): Promise<boolean> {
   const cached = _getSys();
   if (cached?.PMchatBot !== undefined) return cached.PMchatBot;
 
@@ -264,7 +289,7 @@ async function checkPmChatbot() {
 }
 
 // DEACTIVATE PM CHATBOT
-async function deactivateChatBot() {
+async function deactivateChatBot(): Promise<void> {
   const chatbotpm = await systemData.findOne({ id: "1" });
   if (!chatbotpm) {
     await systemData.create({ id: "1", PMchatBot: false });
@@ -280,7 +305,7 @@ async function deactivateChatBot() {
 // ─── Bot Mode ─────────────────────────────────────────────────────────────────
 
 // SET BOT MODE
-async function setBotMode(mode) {
+async function setBotMode(mode: string): Promise<void> {
   const selectedMode = await systemData.findOne({ id: "1" });
   if (!selectedMode) {
     await systemData.create({ id: "1", botMode: mode });
@@ -291,7 +316,7 @@ async function setBotMode(mode) {
 }
 
 // GET BOT MODE
-async function getBotMode() {
+async function getBotMode(): Promise<string> {
   const cached = _getSys();
   if (cached?.botMode !== undefined) return cached.botMode;
 
@@ -311,7 +336,7 @@ async function getBotMode() {
 // ─── Group Functions ──────────────────────────────────────────────────────────
 
 // SET WELCOME MESSAGE
-async function setWelcome(groupID) {
+async function setWelcome(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, switchWelcome: true });
@@ -325,7 +350,7 @@ async function setWelcome(groupID) {
 }
 
 // CHECK WELCOME MESSAGE STATUS
-async function checkWelcome(groupID) {
+async function checkWelcome(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.switchWelcome !== undefined) return cached.switchWelcome;
 
@@ -344,7 +369,7 @@ async function checkWelcome(groupID) {
 }
 
 // DELETE WELCOME MESSAGE
-async function delWelcome(groupID) {
+async function delWelcome(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, switchWelcome: false });
@@ -358,7 +383,7 @@ async function delWelcome(groupID) {
 }
 
 // SET ANTI-LINK
-async function setAntilink(groupID) {
+async function setAntilink(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, antilink: true });
@@ -372,7 +397,7 @@ async function setAntilink(groupID) {
 }
 
 // CHECK ANTI-LINK STATUS
-async function checkAntilink(groupID) {
+async function checkAntilink(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.antilink !== undefined) return cached.antilink;
 
@@ -391,7 +416,7 @@ async function checkAntilink(groupID) {
 }
 
 // DELETE ANTI-LINK
-async function delAntilink(groupID) {
+async function delAntilink(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, antilink: false });
@@ -405,7 +430,7 @@ async function delAntilink(groupID) {
 }
 
 // SET ANTI-DELETE
-async function setAntidelete(groupID) {
+async function setAntidelete(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, antidelete: true });
@@ -419,7 +444,7 @@ async function setAntidelete(groupID) {
 }
 
 // CHECK ANTI-DELETE STATUS
-async function checkAntidelete(groupID) {
+async function checkAntidelete(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.antidelete !== undefined) return cached.antidelete;
 
@@ -439,7 +464,7 @@ async function checkAntidelete(groupID) {
 }
 
 // DELETE ANTI-DELETE
-async function delAntidelete(groupID) {
+async function delAntidelete(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, antidelete: false });
@@ -453,7 +478,7 @@ async function delAntidelete(groupID) {
 }
 
 // SET GROUP CHATBOT
-async function setGroupChatbot(groupID) {
+async function setGroupChatbot(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, chatBot: true });
@@ -467,7 +492,7 @@ async function setGroupChatbot(groupID) {
 }
 
 // CHECK GROUP CHATBOT STATUS
-async function checkGroupChatbot(groupID) {
+async function checkGroupChatbot(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.chatBot !== undefined) return cached.chatBot;
 
@@ -486,7 +511,7 @@ async function checkGroupChatbot(groupID) {
 }
 
 // DELETE GROUP CHATBOT
-async function delGroupChatbot(groupID) {
+async function delGroupChatbot(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, chatBot: false });
@@ -500,7 +525,7 @@ async function delGroupChatbot(groupID) {
 }
 
 // BAN GROUP
-async function banGroup(groupID) {
+async function banGroup(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, bangroup: true });
@@ -514,7 +539,7 @@ async function banGroup(groupID) {
 }
 
 // CHECK BAN GROUP STATUS
-async function checkBanGroup(groupID) {
+async function checkBanGroup(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.bangroup !== undefined) return cached.bangroup;
 
@@ -533,7 +558,7 @@ async function checkBanGroup(groupID) {
 }
 
 // UNBAN GROUP
-async function unbanGroup(groupID) {
+async function unbanGroup(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
   if (!group) {
     await groupData.create({ id: groupID, bangroup: false });
@@ -547,7 +572,7 @@ async function unbanGroup(groupID) {
 }
 
 // SET NSFW
-async function setNSFW(groupID) {
+async function setNSFW(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
 
   if (!group) {
@@ -560,7 +585,7 @@ async function setNSFW(groupID) {
 }
 
 // CHECK NSFW
-async function checkNSFW(groupID) {
+async function checkNSFW(groupID: string): Promise<boolean> {
   const cached = _getGroup(groupID);
   if (cached?.nsfw !== undefined) return cached.nsfw;
 
@@ -576,7 +601,7 @@ async function checkNSFW(groupID) {
 }
 
 // DISABLE NSFW
-async function delNSFW(groupID) {
+async function delNSFW(groupID: string): Promise<void> {
   const group = await groupData.findOne({ id: groupID });
 
   if (!group) {
@@ -594,19 +619,19 @@ async function delNSFW(groupID) {
 // ─── Plugin Functions ─────────────────────────────────────────────────────────
 
 // PUSH NEW INSTALLED PLUGIN IN DATABASE
-async function pushPlugin(newPlugin, url) {
+async function pushPlugin(newPlugin: string, url: string): Promise<void> {
   const plugin = new pluginData({ plugin: newPlugin, url: url });
   await plugin.save();
 }
 
 // Check if plugin is installed
-async function isPluginPresent(pluginName) {
+async function isPluginPresent(pluginName: string): Promise<boolean> {
   const plugin = await pluginData.findOne({ plugin: pluginName });
   return !!plugin;
 }
 
 // DELETE A PLUGIN FROM THE DATABASE
-async function delPlugin(pluginName) {
+async function delPlugin(pluginName: string): Promise<void> {
   const plugin = await pluginData.findOne({ plugin: pluginName });
   if (!plugin) {
     throw new Error("The plugin is not present in the database.");
@@ -615,30 +640,30 @@ async function delPlugin(pluginName) {
 }
 
 // Get all installed plugin URLs as an array
-async function getPluginURLs() {
+async function getPluginURLs(): Promise<string[]> {
   const plugins = await pluginData.find({}, "url");
   return plugins.map((plugin) => plugin.url);
 }
 
 // Getting all plugins as an array
-async function getAllPlugins() {
+async function getAllPlugins(): Promise<any[]> {
   return pluginData.find({}, { plugin: 1, url: 1 });
 }
 
 // ─── Cache Management ─────────────────────────────────────────────────────────
 
 // Expose cache clear helpers (useful for testing or force-refresh scenarios)
-function clearUserCache(userId) {
+function clearUserCache(userId?: string): void {
   if (userId) _delUser(userId);
   else userCache.clear();
 }
 
-function clearGroupCache(groupId) {
+function clearGroupCache(groupId?: string): void {
   if (groupId) _delGroup(groupId);
   else groupCache.clear();
 }
 
-function clearSystemCache() {
+function clearSystemCache(): void {
   _delSys();
 }
 

@@ -1,6 +1,6 @@
 import axios from "axios";
 import type { WAMessage, AtlasClient, QuotedMessage } from "../types/index.js";
-import { ATLAS_SYSTEM_PROMPT, CUSTOM_SYSTEM_PROMPT } from "../System/__system_prompt.js";
+import { ATLAS_SYSTEM_PROMPT, CUSTOM_SYSTEM_PROMPT } from "../System/systemPrompt.js";
 import { getChar } from "../System/MongoDB/MongoDb_Core.js";
 
 interface ChatMessage {

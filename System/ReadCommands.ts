@@ -1,11 +1,15 @@
 import fs from "fs";
 import path from "path";
 import { pathToFileURL } from "url";
-import Collections from "./Collections.js";
-const commands = new Collections();
-commands.prefix = global.prefa;
 
-async function readcommands() {
+export interface CommandCollection extends Map<string, any> {
+  prefix?: any;
+}
+
+const commands: CommandCollection = new Map();
+commands.prefix = (global as any).prefa;
+
+async function readcommands(): Promise<void> {
   commands.clear();
   const cmdfile = fs
     .readdirSync("./Plugins")
@@ -21,7 +25,7 @@ async function readcommands() {
         continue;
       }
       commands.set(cmdfiles.name, cmdfiles);
-    } catch (err) {
+    } catch (err: any) {
       if (file.endsWith(".ts")) {
         console.warn(
           `[ ATLAS ] Skipping TypeScript plugin ${file}: ${err.message}. (Run with 'npm run start:ts' or Bun to support TypeScript plugins)`
@@ -33,4 +37,5 @@ async function readcommands() {
   }
 }
 
-  export {readcommands, commands};
+export { readcommands, commands };
+export default readcommands;
