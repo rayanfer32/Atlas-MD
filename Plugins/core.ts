@@ -44,7 +44,7 @@ export default {
       isintegrated,
     }: any,
   ) => {
-    const pic = fs.readFileSync("./Assets/Atlas.jpg");
+    const pic = fs.readFileSync("./assets/Atlas.jpg");
     switch (inputCMD) {
       case "alive":
       case "ping":

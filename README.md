@@ -42,7 +42,7 @@
 </p>
 
 <p align="center">
-  <img src="./Assets/Advanced_Messaging_Bot_System_Architecture.png" alt="Atlas MD Architecture" width="900px">
+  <img src="./assets/Advanced_Messaging_Bot_System_Architecture.png" alt="Atlas MD Architecture" width="900px">
 </p>
 
 ---

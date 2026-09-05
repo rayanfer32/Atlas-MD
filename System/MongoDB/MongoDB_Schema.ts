@@ -1,5 +1,5 @@
 import mongoose, { type Document, type Model } from "mongoose";
-import config from "../../Configurations.js";
+import config from "../../core/configurations.js";
 
 const options = {
   socketTimeoutMS: 30000,

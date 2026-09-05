@@ -1,9 +1,9 @@
-import "./Configurations.js";
-import "./System/BotCharacters.js";
+import "./configurations.js";
+import "../System/BotCharacters.js";
 import chalk from "chalk";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
-import { getGeminiConfig, GEMINI_MODEL } from "./System/systemPrompt.js";
+import { getGeminiConfig, GEMINI_MODEL } from "../System/systemPrompt.js";
 import {
   checkBan,
   checkMod,
@@ -13,9 +13,9 @@ import {
   checkBanGroup,
   checkAntilink,
   checkGroupChatbot,
-} from "./System/MongoDB/MongoDb_Core.js";
-const prefix = global.prefa;
-export default async (Atlas, m, commands, chatUpdate) => {
+} from "../System/MongoDB/MongoDb_Core.js";
+const prefix = (global as any).prefa;
+export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
   try {
 
     let { type, isGroup, sender, from } = m;
@@ -51,7 +51,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
     const pushname = m.pushName || "NO name";
     const participants = m.isGroup ? metadata.participants || [] : [sender];
     const quoted = m.quoted ? m.quoted : m;
-    const sanitize = (jid) => {
+    const sanitize = (jid: any) => {
       if (!jid) return "";
       return jid.split("@")[0].split(":")[0] + "@" + jid.split("@")[1];
     };
@@ -60,13 +60,13 @@ export default async (Atlas, m, commands, chatUpdate) => {
     const botLid = Atlas.user?.lid ? sanitize(Atlas.user.lid) : botIdClean;
     const groupAdmins = m.isGroup
       ? participants
-        .filter((p) => p.admin === "admin" || p.admin === "superadmin")
-        .map((p) => p.id)
+        .filter((p: any) => p.admin === "admin" || p.admin === "superadmin")
+        .map((p: any) => p.id)
       : [];
     const isBotAdmin = m.isGroup
       ? groupAdmins.includes(botIdClean) ||
       groupAdmins.includes(botLid) ||
-      groupAdmins.some((admin) => sanitize(admin) === botIdClean)
+      groupAdmins.some((admin: any) => sanitize(admin) === botIdClean)
       : false;
     const isAdmin = m.isGroup
       ? groupAdmins.includes(m.sender) ||
@@ -80,7 +80,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
     let resolvedSender = m.sender;
     if (m.sender.endsWith("@lid")) {
       // 1. Check cached LID→phone mapping first
-      const cached = global.lidToJidMap?.get(sanitize(m.sender));
+      const cached = (global as any).lidToJidMap?.get(sanitize(m.sender));
       if (cached && cached.endsWith("@s.whatsapp.net")) {
         resolvedSender = cached;
       } else if (m.key?.participantAlt?.endsWith("@s.whatsapp.net")) {
@@ -89,7 +89,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
       } else if (m.isGroup) {
         // 3. Group metadata phone number
         const pMatch = participants.find(
-          (p) => sanitize(p.id) === sanitize(m.sender) && p.phoneNumber
+          (p: any) => sanitize(p.id) === sanitize(m.sender) && p.phoneNumber
         );
         if (pMatch) resolvedSender = sanitize(pMatch.phoneNumber);
       }
@@ -99,11 +99,11 @@ export default async (Atlas, m, commands, chatUpdate) => {
       }
       // Cache for future lookups
       if (resolvedSender !== m.sender) {
-        global.lidToJidMap.set(sanitize(m.sender), resolvedSender);
+        (global as any).lidToJidMap.set(sanitize(m.sender), resolvedSender);
       }
     }
     const ownerDigits = new Set(
-      [botIdClean, ...global.owner].map((v) => v.replace(/[^0-9]/g, ""))
+      [botIdClean, ...((global as any).owner || [])].map((v: any) => v.replace(/[^0-9]/g, ""))
     );
     const isCreator =
       ownerDigits.has(resolvedSender.replace(/[^0-9]/g, "")) ||
@@ -117,9 +117,9 @@ export default async (Atlas, m, commands, chatUpdate) => {
     const isMedia = /image|video|sticker|audio/.test(mime);
     const budy = typeof m.text == "string" ? m.text : "";
     const args = body.trim().split(/ +/).slice(1);
-    const ar = args.map((v) => v.toLowerCase());
+    const ar = args.map((v: any) => v.toLowerCase());
     const text = args.join(" ");
-    global.suppL = "https://cutt.ly/AtlasBotSupport";
+    (global as any).suppL = "https://cutt.ly/AtlasBotSupport";
     const inputCMD = body.slice(1).trim().split(/ +/).shift().toLowerCase();
     const groupName = m.isGroup ? metadata.subject : "";
     var _0x8a6e = [
@@ -128,10 +128,10 @@ export default async (Atlas, m, commands, chatUpdate) => {
       "\x69\x6E\x63\x6C\x75\x64\x65\x73",
     ];
     function isintegrated() {
-      const _0xdb4ex2 = [_0x8a6e[0], _0x8a6e[1]];
+      const _0xdb4ex2: any = [_0x8a6e[0], _0x8a6e[1]];
       return _0xdb4ex2[_0x8a6e[2]](messSender);
     }
-    async function doReact(emoji) {
+    async function doReact(emoji: string) {
       let reactm = {
         react: {
           text: emoji,
@@ -148,14 +148,14 @@ export default async (Atlas, m, commands, chatUpdate) => {
       .toLowerCase();
     const cmd =
       commands.get(cmdName) ||
-      Array.from(commands.values()).find((v) =>
-        v.alias.find((x) => x.toLowerCase() == cmdName),
+      Array.from(commands.values()).find((v: any) =>
+        v.alias?.find((x: any) => x.toLowerCase() == cmdName),
       ) ||
       "";
     const icmd =
       commands.get(cmdName) ||
-      Array.from(commands.values()).find((v) =>
-        v.alias.find((x) => x.toLowerCase() == cmdName),
+      Array.from(commands.values()).find((v: any) =>
+        v.alias?.find((x: any) => x.toLowerCase() == cmdName),
       );
     const mentionByTag =
       type == "extendedTextMessage" &&
@@ -168,7 +168,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
     const timePrefix = chalk.black(chalk.bgCyan(`[ ${dateNow} - ${timeNow} ]`));
 
     // In Baileys v7, JIDs can be LIDs (@lid) instead of phone numbers (@s.whatsapp.net)
-    const displayJid = (jid) => {
+    const displayJid = (jid: any) => {
       if (!jid) return "unknown";
       const [local, domain] = jid.split("@");
       if (domain === "lid") return `LID:${local}`;
@@ -263,15 +263,15 @@ export default async (Atlas, m, commands, chatUpdate) => {
         let isOwnLink = false;
         try {
           const linkgce = await Atlas.groupInviteCode(from);
-          isOwnLink = detectedUrls.every((u) => u.includes(`chat.whatsapp.com/${linkgce}`));
+          isOwnLink = detectedUrls.every((u: string) => u.includes(`chat.whatsapp.com/${linkgce}`));
         } catch { }
 
         if (!isOwnLink) {
           // Track this deletion so anti-delete ignores it
-          if (!global.botDeletedMsgIds) global.botDeletedMsgIds = new Set();
-          global.botDeletedMsgIds.add(m.id);
+          if (!(global as any).botDeletedMsgIds) (global as any).botDeletedMsgIds = new Set();
+          (global as any).botDeletedMsgIds.add(m.id);
           // Auto-cleanup after 5 minutes to prevent memory leak
-          setTimeout(() => global.botDeletedMsgIds?.delete(m.id), 300000);
+          setTimeout(() => (global as any).botDeletedMsgIds?.delete(m.id), 300000);
 
           // Delete the message
           await Atlas.sendMessage(from, {
@@ -288,21 +288,21 @@ export default async (Atlas, m, commands, chatUpdate) => {
       }
     }
 
-    const fetchGeminiReply = async (promptText) => {
-      const fetchFallback = async (text) => {
+    const fetchGeminiReply = async (promptText: string) => {
+      const fetchFallback = async (text: string) => {
         try {
           const url = `https://api-faa.my.id/faa/gemini-ai?text=${encodeURIComponent(text)}`;
           const response = await axios.get(url);
           if (response.data && response.data.status) {
             return response.data.result;
           }
-        } catch (e) {
-          console.error("Fallback API failed:", e.message);
+        } catch (e: any) {
+          console.error("Fallback API failed:", e?.message);
         }
         return null;
       };
 
-      const geminiKey = global.pickKey(global.geminiAPIKeys);
+      const geminiKey = (global as any).pickKey((global as any).geminiAPIKeys);
       let responseText = null;
 
       if (geminiKey) {
@@ -310,14 +310,14 @@ export default async (Atlas, m, commands, chatUpdate) => {
           const ai = new GoogleGenAI({ apiKey: geminiKey });
           const result = await ai.models.generateContent({
             model: GEMINI_MODEL,
-            config: getGeminiConfig(),
+            config: getGeminiConfig() as any,
             contents: [{ role: "user", parts: [{ text: promptText }] }],
           });
           responseText = result.text;
-        } catch (err) {
+        } catch (err: any) {
           console.log(
             "Gemini API rejected, falling back to 3rd party API...\nError:",
-            err.message || err,
+            err?.message || err,
           );
           responseText = await fetchFallback(promptText);
         }
@@ -342,8 +342,8 @@ export default async (Atlas, m, commands, chatUpdate) => {
           const txtChatbot = await fetchGeminiReply(budy);
           m.reply(txtChatbot);
           await Atlas.sendPresenceUpdate('paused', m.from);
-        } catch (e) {
-          console.error("[ ATLAS ] Group chatbot error:", e.message);
+        } catch (e: any) {
+          console.error("[ ATLAS ] Group chatbot error:", e?.message);
         }
       }
     }
@@ -355,8 +355,8 @@ export default async (Atlas, m, commands, chatUpdate) => {
           const txtChatbot = await fetchGeminiReply(budy);
           m.reply(txtChatbot);
           await Atlas.sendPresenceUpdate('paused', m.from);
-        } catch (e) {
-          console.error("[ ATLAS ] PM chatbot error:", e.message);
+        } catch (e: any) {
+          console.error("[ ATLAS ] PM chatbot error:", e?.message);
         }
       }
     }
@@ -369,7 +369,7 @@ export default async (Atlas, m, commands, chatUpdate) => {
     try {
       const charx = await getChar();
       CharacterSelection = charx;
-    } catch (e) {
+    } catch (e: any) {
       CharacterSelection = "0";
     }
 
@@ -378,21 +378,21 @@ export default async (Atlas, m, commands, chatUpdate) => {
     }
 
     const idConfig = "charID" + CharacterSelection;
-    const charConfig = global[idConfig] || global["charID0"];
+    const charConfig = (global as any)[idConfig] || (global as any)["charID0"] || {};
 
-    global.botName = charConfig.botName;
-    global.botVideo = charConfig.botVideo;
-    global.botImage1 = charConfig.botImage1;
-    global.botImage2 = charConfig.botImage2;
-    global.botImage3 = charConfig.botImage3;
-    global.botImage4 = charConfig.botImage4;
-    global.botImage5 = charConfig.botImage5;
-    global.botImage6 = charConfig.botImage6;
+    (global as any).botName = charConfig.botName;
+    (global as any).botVideo = charConfig.botVideo;
+    (global as any).botImage1 = charConfig.botImage1;
+    (global as any).botImage2 = charConfig.botImage2;
+    (global as any).botImage3 = charConfig.botImage3;
+    (global as any).botImage4 = charConfig.botImage4;
+    (global as any).botImage5 = charConfig.botImage5;
+    (global as any).botImage6 = charConfig.botImage6;
 
     // ------------------------------------------------------------------------------------------------------- //
 
-    const pad = (s) => (s < 10 ? "0" : "") + s;
-    const formatTime = (seconds) => {
+    const pad = (s: number | string) => (Number(s) < 10 ? "0" : "") + s;
+    const formatTime = (seconds: number) => {
       const hours = Math.floor(seconds / (60 * 60));
       const minutes = Math.floor((seconds % (60 * 60)) / 60);
       const secs = Math.floor(seconds % 60);
@@ -430,14 +430,13 @@ export default async (Atlas, m, commands, chatUpdate) => {
       mime,
       isBotAdmin,
       prefix,
-      db,
       command: cmd.name,
       commands,
-      toUpper: function toUpper(query) {
-        return query.replace(/^\w/, (c) => c.toUpperCase());
+      toUpper: function toUpper(query: string) {
+        return query.replace(/^\w/, (c: string) => c.toUpperCase());
       },
     });
-  } catch (e) {
+  } catch (e: any) {
     e = String(e);
     if (!e.includes("cmd.start")) console.error(e);
   }

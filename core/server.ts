@@ -11,7 +11,7 @@ export const app = express();
 app.use(express.json());
 
 // Serve Frontend static assets
-app.use("/", express.static(join(__dirname, "../Frontend")));
+app.use("/", express.static(join(__dirname, "../frontend")));
 
 let serverStatus = "initializing";
 let qrCodeValue: string | null = "invalid";

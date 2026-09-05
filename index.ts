@@ -1,4 +1,6 @@
-import "./Configurations.js";
+import "./core/configurations.js";
+import core from "./core/core.js";
+
 import ffmpegStatic from "ffmpeg-static";
 process.env.FFMPEG_PATH = (ffmpegStatic as unknown as string) || "";
 
@@ -21,7 +23,6 @@ import MongoAuth from "./System/MongoAuth/MongoAuth.js";
 import { serialize } from "./System/whatsapp.js";
 import welcomeLeft from "./System/Welcome.js";
 import { readcommands, commands } from "./System/ReadCommands.js";
-import core from "./Core.js";
 import { getPluginURLs } from "./System/MongoDB/MongoDb_Core.js";
 import { getSleepConfig, checkIfSleepTime } from "./utils/helper.js";
 
@@ -204,7 +205,7 @@ const scheduleReconnect = (
   console.log(
     chalk.yellow(
       `[ ATLAS ] Reconnect scheduled in ${(delay / 1000).toFixed(1)}s ` +
-        `(attempt ${reconnectAttempt}) - ${reason}`
+      `(attempt ${reconnectAttempt}) - ${reason}`
     )
   );
 
@@ -429,7 +430,7 @@ const connectAtlas = async (trigger: string): Promise<any> => {
             setTimeout(async () => {
               await Atlas.sendMessage(jid, {
                 text: "🌅 *Atlas Bot has woken up and is now online!*",
-              }).catch(() => {});
+              }).catch(() => { });
             }, 10_000);
           }
         }
@@ -610,7 +611,7 @@ const runWatchdog = async (): Promise<void> => {
       console.error(
         chalk.redBright(
           `[ ATLAS ] Connection startup stalled for ` +
-            `${Math.round(startingFor / 1000)}s - exiting for supervisor restart`
+          `${Math.round(startingFor / 1000)}s - exiting for supervisor restart`
         )
       );
       process.exit(1);
@@ -672,7 +673,7 @@ const runWatchdog = async (): Promise<void> => {
     console.error(
       chalk.yellow(
         `[ ATLAS ] Watchdog probe failed ${healthProbeFailures}/` +
-          `${HEALTH_FAILURE_THRESHOLD}: ${err.message}`
+        `${HEALTH_FAILURE_THRESHOLD}: ${err.message}`
       )
     );
 
@@ -721,7 +722,7 @@ messageCacheTimer = setInterval(
 console.log(
   chalk.cyan(
     `[ ATLAS ] Connection watchdog active - probing every ` +
-      `${WATCHDOG_INTERVAL_MS / 1000}s`
+    `${WATCHDOG_INTERVAL_MS / 1000}s`
   )
 );
 
@@ -743,7 +744,7 @@ const shutdown = async (signal: string) => {
     new Promise((resolve) => setTimeout(resolve, 10_000)),
   ]);
   await closeActiveSocket(`Process shutdown: ${signal}`);
-  await mongoose.disconnect().catch(() => {});
+  await mongoose.disconnect().catch(() => { });
   process.exit(0);
 };
 

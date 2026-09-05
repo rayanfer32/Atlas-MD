@@ -81,7 +81,6 @@ export default {
       isCreator,
       banData,
       prefix,
-      db,
       isintegrated,
       doReact,
       args,

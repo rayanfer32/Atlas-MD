@@ -1,4 +1,4 @@
-import "./Configurations.js";
+import "./core/configurations.js";
 import mongoose from "mongoose";
 import chalk from "chalk";
 import figlet from "figlet";
@@ -19,7 +19,7 @@ function maskMongoUri(uri) {
 
 async function testConnection() {
   console.clear();
-  
+
   // Banner
   console.log(
     chalk.cyan(
@@ -60,11 +60,11 @@ async function testConnection() {
     console.log("");
 
     console.log(chalk.cyan("⏳ Running database sanity checks..."));
-    
+
     // Fetch database stats to verify full read/write/query capabilities
     const db = mongoose.connection.db;
     const adminDb = db.admin();
-    
+
     // 1. Get database details
     const dbName = mongoose.connection.name;
     console.log(`${chalk.green("✔")} Database Name:     ${chalk.bold(dbName)}`);
@@ -85,7 +85,7 @@ async function testConnection() {
     console.log(chalk.bold.green("=================================================="));
     console.log(chalk.bold.green(" 🎉 Connection Test PASSED! Database is healthy.  "));
     console.log(chalk.bold.green("=================================================="));
-    
+
   } catch (error) {
     console.log("");
     console.log(chalk.red("❌ Connection Test FAILED!"));
@@ -95,7 +95,7 @@ async function testConnection() {
     console.log("");
 
     console.log(chalk.bold.yellow("🔍 Troubleshooting Tips:"));
-    
+
     if (error.message.includes("querySrv ETIMEOUT") || error.message.includes("querySrv ENOTFOUND")) {
       console.log(chalk.yellow("   1. Domain Name Resolution Failed."));
       console.log("      - Check your internet connection.");
@@ -115,7 +115,7 @@ async function testConnection() {
       console.log("      - If running locally, make sure your MongoDB service is running: 'mongod'.");
       console.log("      - Verify the port number (default is 27017).");
     }
-    
+
     console.log("");
     console.log(chalk.bold.red("=================================================="));
     process.exit(1);
