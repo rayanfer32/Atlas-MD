@@ -22,6 +22,7 @@ let mergedCommands = [
   "wikipedia",
   "wiki",
   "g",
+  "gpt",
 ];
 
 export default {
@@ -38,11 +39,13 @@ export default {
     "wallpaper",
     "wikipedia",
     "g",
+    "gpt",
   ],
   description: "All picture related commands",
   start: async (Atlas: any, m: any, { inputCMD, text, doReact, prefix, pushName }: any) => {
     switch (inputCMD) {
-      case "g": {
+      case "g":
+      case "gpt": {
         const cleanText = text?.trim() || "";
         const quotedText = (
           m.quoted?.text ||
@@ -53,63 +56,24 @@ export default {
           ""
         ).trim();
 
-        let query = "";
-        if (quotedText && cleanText) {
-          query = `${quotedText} ${cleanText}`.trim();
-        } else if (cleanText) {
-          query = cleanText;
-        } else if (quotedText) {
-          query = quotedText;
-        }
+        const query = quotedText && cleanText ? `${quotedText} ${cleanText}` : cleanText || quotedText;
+        const isGpt = inputCMD === "gpt";
 
         if (!query) {
           await doReact("❔");
           return m.reply(
-            `Please provide a search term or reply to a message!\n\nExample: *${prefix}g who is the most clever minister in the world ?*`
+            `Please provide a ${isGpt ? "prompt" : "search term"} or reply to a message!\n\nExample: *${prefix}${inputCMD} ${
+              isGpt ? "which is the most used coding language" : "who is the most clever minister in the world ?"
+            }*`
           );
         }
 
-        await doReact("🔍");
-        const url = `https://www.google.com/ai?q=${encodeURIComponent(query)}`;
+        await doReact(isGpt ? "🤖" : "🔍");
+        const url = isGpt
+          ? `https://chatgpt.com/?prompt=${encodeURIComponent(query).replace(/%20/g, "+")}`
+          : `https://www.google.com/ai?q=${encodeURIComponent(query)}`;
         return m.reply(url);
       }
-
-      case "google":
-      case "search":
-        if (!text) {
-          await doReact("❔");
-          return m.reply(
-            `Please provide an image Search Term !\n\nExample: *${prefix}search Free Web development Course*`,
-          );
-        }
-        await doReact("🔍");
-        try {
-          const googleSearch = await searchit(text, 10);
-          if (!googleSearch || googleSearch.length === 0) {
-            await doReact("❌");
-            return m.reply(`No results found for: *${text}*`);
-          }
-          let resText = `  *『  ⚡️ Google Search Engine ⚡️  』*\n\n\n_🔍 Search Term:_ *${text}*\n\n\n`;
-          for (const result of googleSearch) {
-            resText += `_📍 Result:_ *${result.index + 1}*\n\n_🎀 Title:_ *${result.page}*\n\n_🔶 Description:_ *${result.desc}*\n\n_🔷 Link:_ *${result.url}*\n\n\n`;
-          }
-          await Atlas.sendMessage(
-            m.from,
-            {
-              video: {
-                url: "https://media.tenor.com/3aaAzbTrTMwAAAPo/google-technology-company.mp4",
-              },
-              gifPlayback: true,
-              caption: resText,
-            },
-            { quoted: m },
-          );
-        } catch (err) {
-          console.error("Search error:", err);
-          await doReact("❌");
-          return m.reply(`An error occurred while searching for: *${text}*`);
-        }
-        break;
 
       case "lyrics":
         if (!text) {
