@@ -48,6 +48,7 @@ export interface GitHubGroupConfig {
   projectId: string;
   statusFieldId: string;
   token?: string;
+  branch?: string;
 }
 
 export interface ProjectBoardItem {
@@ -286,7 +287,7 @@ async function extractMessageData(Atlas: AtlasClient, candidate: any): Promise<D
           "buffer",
           {},
           {
-            logger: { info: () => {}, debug: () => {}, warn: () => {}, error: () => {} } as any,
+            logger: { info: () => { }, debug: () => { }, warn: () => { }, error: () => { } } as any,
             reuploadRequest: (Atlas as any).updateMediaMessage,
           }
         );
@@ -640,7 +641,8 @@ async function uploadImageToRepo(
   octokit: Octokit,
   imagePath: string,
   owner: string,
-  repo: string
+  repo: string,
+  branch?: string
 ): Promise<string> {
   const filename = path.basename(imagePath);
   const content = fs.readFileSync(imagePath);
@@ -657,20 +659,21 @@ async function uploadImageToRepo(
     content: base64Content,
   });
 
-  return (res.data.content as any)?.download_url || `https://github.com/${owner}/${repo}/raw/master/${repoPath}`;
+  return `https://github.com/${owner}/${repo}/raw/${branch}/${repoPath}`;
 }
 
 async function createIssue(
   octokit: Octokit,
   draft: Draft,
   owner: string,
-  repo: string
+  repo: string,
+  branch?: string
 ): Promise<{ number: number; url: string; nodeId: string }> {
   const messagesWithUrls = [...draft.messages];
   for (const msg of messagesWithUrls) {
     if (msg.type === 'image' && msg.imagePath) {
       try {
-        const url = await uploadImageToRepo(octokit, msg.imagePath, owner, repo);
+        const url = await uploadImageToRepo(octokit, msg.imagePath, owner, repo, branch);
         cleanupTempFile(msg.imagePath);
         msg.imagePath = url;
       } catch (err: any) {
@@ -1056,7 +1059,7 @@ async function handleGhc(ctx: CommandContext): Promise<void> {
   };
 
   try {
-    const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo);
+    const issue = await createIssue(octokit, draft, groupConfig.owner, groupConfig.repo, groupConfig.branch);
     const projectItem = await addIssueToProject(octokit, groupConfig.projectId, issue.nodeId);
     await setProjectItemStatus(octokit, groupConfig.projectId, groupConfig.statusFieldId, projectItem.itemId, 'todo');
 
