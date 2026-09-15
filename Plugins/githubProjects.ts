@@ -1447,11 +1447,196 @@ async function handleGhBoard(ctx: CommandContext): Promise<void> {
   }
 }
 
+async function handleGhInfo(
+  Atlas: AtlasClient,
+  m: WAMessage,
+  { text, args, prefix, doReact, octokit }: {
+    text: string;
+    args: string[];
+    prefix: string;
+    doReact: (emoji: string) => Promise<void>;
+    octokit: Octokit;
+  }
+): Promise<void> {
+  const inputUrl = (args[0] || text || "").trim();
+
+  if (!inputUrl) {
+    await doReact("❔");
+    await m.reply(
+      `❗ Please provide a GitHub Projects URL.\n\n` +
+      `*Usage:* \`${prefix}ghinfo <project-url>\`\n` +
+      `*Examples:*\n` +
+      `• \`${prefix}ghinfo https://github.com/users/rayanfer32/projects/18\`\n` +
+      `• \`${prefix}ghinfo https://github.com/orgs/my-org/projects/1\``
+    );
+    return;
+  }
+
+  const parsed = parseProjectUrl(inputUrl);
+  if (!parsed) {
+    await doReact("❌");
+    await m.reply(
+      `❗ Invalid GitHub Project URL format.\n\n` +
+      `*Expected format:*\n` +
+      `• \`https://github.com/users/<username>/projects/<number>\`\n` +
+      `• \`https://github.com/orgs/<orgname>/projects/<number>\``
+    );
+    return;
+  }
+
+  await doReact("⏳");
+
+  try {
+    const userQuery = `
+      query GetUserProject($login: String!, $number: Int!) {
+        user(login: $login) {
+          projectV2(number: $number) {
+            id
+            title
+            url
+            fields(first: 50) {
+              nodes {
+                ... on ProjectV2SingleSelectField {
+                  id
+                  name
+                  options {
+                    id
+                    name
+                  }
+                }
+                ... on ProjectV2FieldCommon {
+                  id
+                  name
+                  dataType
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const orgQuery = `
+      query GetOrgProject($login: String!, $number: Int!) {
+        organization(login: $login) {
+          projectV2(number: $number) {
+            id
+            title
+            url
+            fields(first: 50) {
+              nodes {
+                ... on ProjectV2SingleSelectField {
+                  id
+                  name
+                  options {
+                    id
+                    name
+                  }
+                }
+                ... on ProjectV2FieldCommon {
+                  id
+                  name
+                  dataType
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    let project: any = null;
+
+    if (parsed.type === 'user') {
+      const res: any = await octokit.graphql(userQuery, { login: parsed.owner, number: parsed.number });
+      project = res?.user?.projectV2;
+    } else if (parsed.type === 'org') {
+      const res: any = await octokit.graphql(orgQuery, { login: parsed.owner, number: parsed.number });
+      project = res?.organization?.projectV2;
+    } else {
+      try {
+        const res: any = await octokit.graphql(userQuery, { login: parsed.owner, number: parsed.number });
+        project = res?.user?.projectV2;
+      } catch {
+        const res: any = await octokit.graphql(orgQuery, { login: parsed.owner, number: parsed.number });
+        project = res?.organization?.projectV2;
+      }
+    }
+
+    if (!project) {
+      await doReact("❌");
+      await m.reply(`❗ Project #${parsed.number} not found under "${parsed.owner}". Please check URL and token permissions.`);
+      return;
+    }
+
+    const fields: any[] = project.fields?.nodes ?? [];
+    const singleSelectFields = fields.filter(f => f?.options && Array.isArray(f.options));
+    const statusField = singleSelectFields.find(f => f?.name?.toLowerCase() === 'status') || singleSelectFields[0];
+
+    const targetGroupJid = m.isGroup ? m.from : "YOUR_GROUP_JID@g.us";
+
+    let optionsSection = "";
+    if (statusField && statusField.options && statusField.options.length > 0) {
+      const optionLines = statusField.options.map((opt: any) => `  • *${opt.name}:* \`${opt.id}\``);
+      optionsSection = `\n\n🏷️ *Status Options (${statusField.name}):*\n` + optionLines.join('\n');
+    }
+
+    const message = [
+      `📋 *GitHub Project Info*`,
+      `*Title:* ${project.title || 'Untitled'}`,
+      project.url ? `*URL:* ${project.url}` : '',
+      `*Owner:* ${parsed.owner}`,
+      `*Project #:* ${parsed.number}`,
+      ``,
+      `🔑 *Environment Variables (.env):*`,
+      `\`\`\`env`,
+      `GITHUB_PROJECT_ID=${project.id}`,
+      `GITHUB_STATUS_FIELD_ID=${statusField?.id || 'NOT_FOUND'}`,
+      `\`\`\``,
+      ``,
+      `⚙️ *GITHUB_PROJECTS_MAPPING Entry:*`,
+      `\`\`\`json`,
+      `"${targetGroupJid}": {`,
+      `  "owner": "${parsed.owner}",`,
+      `  "repo": "YOUR_REPO",`,
+      `  "projectId": "${project.id}",`,
+      `  "statusFieldId": "${statusField?.id || 'NOT_FOUND'}"`,
+      `}`,
+      `\`\`\``,
+      optionsSection
+    ].filter(Boolean).join('\n');
+
+    await doReact("✅");
+    await m.reply(message);
+  } catch (err: any) {
+    console.error("Failed to fetch project info via /ghinfo:", err);
+    await doReact("❌");
+    await m.reply(`❌ Failed to fetch project info. Error: ${err.message || err}`);
+  }
+}
+
+function parseProjectUrl(input: string): { type: 'user' | 'org' | 'unknown'; owner: string; number: number } | null {
+  const trimmed = input.trim();
+  const userMatch = trimmed.match(/(?:https?:\/\/github\.com\/)?users\/([^\/\s]+)\/projects\/(\d+)/i);
+  if (userMatch) {
+    return { type: 'user', owner: userMatch[1], number: parseInt(userMatch[2], 10) };
+  }
+  const orgMatch = trimmed.match(/(?:https?:\/\/github\.com\/)?orgs\/([^\/\s]+)\/projects\/(\d+)/i);
+  if (orgMatch) {
+    return { type: 'org', owner: orgMatch[1], number: parseInt(orgMatch[2], 10) };
+  }
+  const directMatch = trimmed.match(/(?:https?:\/\/github\.com\/)?([^\/\s]+)\/projects\/(\d+)/i);
+  if (directMatch && directMatch[1] !== 'users' && directMatch[1] !== 'orgs') {
+    return { type: 'unknown', owner: directMatch[1], number: parseInt(directMatch[2], 10) };
+  }
+  return null;
+}
+
 // ============================================================================
 // 8. Plugin Definition & Dispatcher
 // ============================================================================
 
-const COMMANDS = ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb"];
+const COMMANDS = ["ghcreate", "ghadd", "ghdone", "ghcancel", "ghmove", "ghc", "ghboard", "ghb", "ghinfo"];
 
 export default {
   name: "githubprojects",
@@ -1471,14 +1656,23 @@ export default {
       isBotAdmin: boolean;
     }
   ) => {
+    const groupJid = m.from;
+    const groupConfig = m.isGroup ? getGroupConfig(groupJid) : null;
+    const token = groupConfig?.token || process.env.GITHUB_TOKEN;
+
+    if (inputCMD === "ghinfo") {
+      if (!token) {
+        await doReact("⚠️");
+        return m.reply("❌ Missing GitHub token. Please configure GITHUB_TOKEN in your .env file.");
+      }
+      const octokit = new Octokit({ auth: token });
+      return await handleGhInfo(Atlas, m, { text, args, prefix, doReact, octokit });
+    }
+
     if (!m.isGroup) {
       await doReact("❌");
       return m.reply("❗ This command can only be used in group chats.");
     }
-
-    const groupJid = m.from;
-    const groupConfig = getGroupConfig(groupJid);
-    const token = groupConfig?.token || process.env.GITHUB_TOKEN;
 
     if (!token) {
       await doReact("⚠️");
