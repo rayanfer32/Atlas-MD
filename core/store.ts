@@ -1,3 +1,6 @@
+import fs from "fs";
+import path from "path";
+
 export interface StoredMessageEntry {
   id: string;
   key: any;
@@ -50,20 +53,17 @@ if (!(global as any).pendingTicketMessages) {
 
 export function isGitHubMappedGroup(jid: string): boolean {
   if (!jid || !jid.endsWith("@g.us")) return false;
-  if (process.env.GITHUB_PROJECTS_MAPPING) {
+  const mappingPath = path.resolve(process.cwd(), "github-projects-mapping.json");
+  if (fs.existsSync(mappingPath)) {
     try {
-      const mapping = JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
+      const mapping = JSON.parse(fs.readFileSync(mappingPath, "utf-8"));
       return !!mapping[jid];
     } catch {
       return false;
     }
   }
-  return !!(
-    process.env.GITHUB_OWNER &&
-    process.env.GITHUB_REPO &&
-    process.env.GITHUB_PROJECT_ID &&
-    process.env.GITHUB_STATUS_FIELD_ID
-  );
+
+  return false;
 }
 
 export function recordPendingReaction(

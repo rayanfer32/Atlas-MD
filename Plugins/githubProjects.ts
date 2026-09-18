@@ -425,30 +425,19 @@ function extractIssueNumber(text: string): number | null {
 // ============================================================================
 
 function getGroupConfig(groupJid: string): GitHubGroupConfig | null {
-  if (process.env.GITHUB_PROJECTS_MAPPING) {
+  const mappingPath = path.resolve(process.cwd(), "github-projects-mapping.json");
+  if (fs.existsSync(mappingPath)) {
     try {
-      const mapping: Record<string, GitHubGroupConfig> = JSON.parse(process.env.GITHUB_PROJECTS_MAPPING);
+      const mapping: Record<string, GitHubGroupConfig> = JSON.parse(
+        fs.readFileSync(mappingPath, "utf-8")
+      );
       if (mapping[groupJid]) return mapping[groupJid];
     } catch (err: any) {
-      console.error("[GITHUB] Error parsing GITHUB_PROJECTS_MAPPING:", err?.message || err);
+      console.error("[GITHUB] Error reading/parsing github-projects-mapping.json:", err?.message || err);
     }
     return null;
   }
 
-  if (
-    process.env.GITHUB_OWNER &&
-    process.env.GITHUB_REPO &&
-    process.env.GITHUB_PROJECT_ID &&
-    process.env.GITHUB_STATUS_FIELD_ID
-  ) {
-    return {
-      owner: process.env.GITHUB_OWNER,
-      repo: process.env.GITHUB_REPO,
-      projectId: process.env.GITHUB_PROJECT_ID,
-      statusFieldId: process.env.GITHUB_STATUS_FIELD_ID,
-      token: process.env.GITHUB_TOKEN,
-    };
-  }
 
   return null;
 }
@@ -1594,7 +1583,7 @@ async function handleGhInfo(
       `GITHUB_STATUS_FIELD_ID=${statusField?.id || 'NOT_FOUND'}`,
       `\`\`\``,
       ``,
-      `⚙️ *GITHUB_PROJECTS_MAPPING Entry:*`,
+      `⚙️ *github-projects-mapping.json Entry:*`,
       `\`\`\`json`,
       `"${targetGroupJid}": {`,
       `  "owner": "${parsed.owner}",`,
