@@ -3,6 +3,7 @@ import {
   groupData,
   systemData,
   pluginData,
+  aiConfigData,
 } from "./MongoDB_Schema.js";
 
 // ─── In-Memory Cache ──────────────────────────────────────────────────────────
@@ -40,12 +41,23 @@ interface SystemCacheEntry {
   expiresAt: number;
 }
 
+interface AiConfigCacheEntry {
+  data: {
+    activeHandler?: string;
+    model?: string;
+    apiUrl?: string;
+    isEnabled?: boolean;
+  } | null;
+  expiresAt: number;
+}
+
 // user cache  : Map<userId, { ban, addedMods, expiresAt }>
 // group cache : Map<groupId, { antilink, bangroup, chatBot, switchWelcome, expiresAt }>
 // system cache: single object (one "id: 1" row)
 const userCache = new Map<string, UserCacheEntry>();
 const groupCache = new Map<string, GroupCacheEntry>();
 let systemCache: SystemCacheEntry = { data: null, expiresAt: 0 };
+let aiCache: AiConfigCacheEntry = { data: null, expiresAt: 0 };
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function _getUser(userId: string): UserCacheEntry | null {
@@ -98,6 +110,20 @@ function _delSys(): void {
   systemCache.expiresAt = 0;
 }
 
+function _getAi(): AiConfigCacheEntry["data"] {
+  return aiCache.data && Date.now() < aiCache.expiresAt
+    ? aiCache.data
+    : null;
+}
+function _setAi(fields: Partial<NonNullable<AiConfigCacheEntry["data"]>>): void {
+  aiCache.data = { ...(aiCache.data || {}), ...fields };
+  aiCache.expiresAt = Date.now() + SYSTEM_CACHE_TTL;
+}
+function _delAi(): void {
+  aiCache.data = null;
+  aiCache.expiresAt = 0;
+}
+
 const cacheSweepTimer = setInterval(
   () => {
     const now = Date.now();
@@ -108,6 +134,7 @@ const cacheSweepTimer = setInterval(
       if (now >= entry.expiresAt) groupCache.delete(groupId);
     }
     if (systemCache.data && now >= systemCache.expiresAt) _delSys();
+    if (aiCache.data && now >= aiCache.expiresAt) _delAi();
   },
   Math.max(60_000, Math.min(USER_CACHE_TTL, GROUP_CACHE_TTL, 5 * 60_000)),
 );
@@ -650,6 +677,99 @@ async function getAllPlugins(): Promise<any[]> {
   return pluginData.find({}, { plugin: 1, url: 1 });
 }
 
+// ─── AI Config Functions ──────────────────────────────────────────────────────
+
+// GET AI CONFIG
+async function getAiConfig(): Promise<{
+  activeHandler: string;
+  model: string;
+  apiUrl: string;
+  isEnabled: boolean;
+}> {
+  const cached = _getAi();
+  if (
+    cached &&
+    typeof cached.activeHandler === "string" &&
+    typeof cached.model === "string" &&
+    typeof cached.apiUrl === "string"
+  ) {
+    return {
+      activeHandler: cached.activeHandler,
+      model: cached.model,
+      apiUrl: cached.apiUrl,
+      isEnabled: cached.isEnabled !== false,
+    };
+  }
+
+  let doc = await aiConfigData.findOne({ id: "1" });
+  if (!doc) {
+    doc = await aiConfigData.create({
+      id: "1",
+      activeHandler: "apinex",
+      aiModel: "free/gpt-6-luna",
+      apiUrl: "https://api.apinex.bond/v1/chat/completions",
+      isEnabled: true,
+    });
+  }
+
+  const result = {
+    activeHandler: doc.activeHandler || "apinex",
+    model: doc.aiModel || "free/gpt-6-luna",
+    apiUrl: doc.apiUrl || "https://api.apinex.bond/v1/chat/completions",
+    isEnabled: doc.isEnabled !== false,
+  };
+
+  _setAi(result);
+  return result;
+}
+
+// SET ACTIVE AI HANDLER
+async function setActiveAiHandler(handler: string): Promise<void> {
+  const lower = handler.toLowerCase().trim();
+  await getAiConfig();
+  await aiConfigData.findOneAndUpdate(
+    { id: "1" },
+    { $set: { activeHandler: lower } },
+    { upsert: true },
+  );
+  _setAi({ activeHandler: lower });
+}
+
+// SET AI MODEL
+async function setAiModel(model: string): Promise<void> {
+  const trimmed = model.trim();
+  await getAiConfig();
+  await aiConfigData.findOneAndUpdate(
+    { id: "1" },
+    { $set: { aiModel: trimmed } },
+    { upsert: true },
+  );
+  _setAi({ model: trimmed });
+}
+
+// SET AI CONFIG (Generic updater)
+async function setAiConfig(
+  fields: Partial<{
+    activeHandler: string;
+    model: string;
+    apiUrl: string;
+    isEnabled: boolean;
+  }>,
+): Promise<void> {
+  await getAiConfig();
+  const updateData: any = { ...fields };
+  if (fields.model !== undefined) {
+    updateData.aiModel = fields.model;
+    delete updateData.model;
+  }
+  await aiConfigData.findOneAndUpdate(
+    { id: "1" },
+    { $set: updateData },
+    { upsert: true },
+  );
+  _setAi(fields);
+}
+
 // ─── Cache Management ─────────────────────────────────────────────────────────
 
 // Expose cache clear helpers (useful for testing or force-refresh scenarios)
@@ -665,6 +785,10 @@ function clearGroupCache(groupId?: string): void {
 
 function clearSystemCache(): void {
   _delSys();
+}
+
+function clearAiCache(): void {
+  _delAi();
 }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
@@ -705,7 +829,12 @@ export {
   delNSFW, // DISABLE NSFW MODE
   getPluginURLs, // GET ALL INSTALLED PLUGIN URLs
   getAllPlugins, // GET ALL INSTALLED PLUGINS
+  getAiConfig, // GET AI CONFIG
+  setActiveAiHandler, // SET ACTIVE AI HANDLER
+  setAiModel, // SET AI MODEL
+  setAiConfig, // SET AI CONFIG
   clearUserCache, // CLEAR USER CACHE (userId or all)
   clearGroupCache, // CLEAR GROUP CACHE (groupId or all)
   clearSystemCache, // CLEAR SYSTEM CACHE
+  clearAiCache, // CLEAR AI CACHE
 };

@@ -39,3 +39,4 @@ declare var updateAvailable: boolean;
 declare var latestVersion: string;
 declare var botDeletedMsgIds: Set<string>;
 declare var lidToJidMap: Map<string, string>;
+declare var apinexApiKey: string;

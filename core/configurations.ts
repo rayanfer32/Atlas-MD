@@ -79,6 +79,7 @@ const claudeAPIKeys = parseKeys(
   "your-anthropic-api-key-here",
 );
 const tenorAPIKeys = parseKeys(process.env.TENOR_API_KEY || DEFAULT_TENOR_KEY);
+const apinexApiKey = stripEnv(process.env.APINEX_API_KEY, "");
 
 // Ambient TypeScript typings for globals attached throughout the app lifecycle that are not in ambient.d.ts
 declare global {
@@ -89,6 +90,7 @@ declare global {
   var openAiAPIKeys: string[];
   var claudeAPIKeys: string[];
   var tenorAPIKeys: string[];
+  var apinexApiKey: string;
   var pickKey: (keys?: string[]) => string | null;
   var isSleeping: boolean;
   var justWokeUp: boolean;
@@ -107,6 +109,7 @@ global.geminiAPIKeys = geminiAPIKeys;
 global.openAiAPIKeys = openAiAPIKeys;
 global.claudeAPIKeys = claudeAPIKeys;
 global.tenorAPIKeys = tenorAPIKeys;
+global.apinexApiKey = apinexApiKey;
 
 // Dynamic getter — every access to `tenorApiKey` returns a random key from the pool
 Object.defineProperty(global, "tenorApiKey", {
@@ -128,6 +131,7 @@ export interface BotConfig {
   openAiAPIKeys: string[];
   claudeAPIKeys: string[];
   tenorAPIKeys: string[];
+  apinexApiKey: string;
 }
 
 export const config: BotConfig = Object.freeze({
@@ -142,6 +146,7 @@ export const config: BotConfig = Object.freeze({
   openAiAPIKeys,
   claudeAPIKeys,
   tenorAPIKeys,
+  apinexApiKey,
 });
 
 export default config;

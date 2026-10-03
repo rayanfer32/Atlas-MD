@@ -4,6 +4,7 @@ import chalk from "chalk";
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
 import { getGeminiConfig, GEMINI_MODEL } from "../System/systemPrompt.js";
+import { generateAiResponse } from "./aiService.js";
 import {
   checkBan,
   checkMod,
@@ -126,50 +127,10 @@ const resolveSenderJid = (
 };
 
 /**
- * Fallback free AI endpoint when Gemini API is unavailable or rate-limited
- */
-const fetchFallbackAi = async (promptText: string): Promise<string | null> => {
-  try {
-    const url = `${FALLBACK_AI_URL}?text=${encodeURIComponent(promptText)}`;
-    const response = await axios.get(url, { timeout: 15000 });
-    if (response.data && response.data.status) {
-      return response.data.result;
-    }
-  } catch (e: any) {
-    console.error("[ ATLAS ] Fallback AI API request failed:", e?.message);
-  }
-  return null;
-};
-
-/**
- * Generate AI chatbot response via Gemini or secondary fallback
+ * Generate AI chatbot response via active handler (APInex / Gemini) with automatic fallbacks
  */
 const fetchGeminiReply = async (promptText: string): Promise<string> => {
-  const geminiKey = global.pickKey ? global.pickKey(global.geminiAPIKeys) : null;
-  let responseText: string | null = null;
-
-  if (geminiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
-      const result = await ai.models.generateContent({
-        model: GEMINI_MODEL,
-        config: getGeminiConfig() as any,
-        contents: [{ role: "user", parts: [{ text: promptText }] }],
-      });
-      responseText = result.text ?? null;
-    } catch (err: any) {
-      console.log(
-        "[ ATLAS ] Gemini API error, falling back to backup AI...\nDetails:",
-        err?.message || err,
-      );
-      responseText = await fetchFallbackAi(promptText);
-    }
-  } else {
-    console.log("[ ATLAS ] No valid Gemini key available, using backup AI API.");
-    responseText = await fetchFallbackAi(promptText);
-  }
-
-  return responseText ? responseText.trim() : "Service unavailable at the moment.";
+  return generateAiResponse(promptText);
 };
 
 /**

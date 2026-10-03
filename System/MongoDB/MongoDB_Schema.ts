@@ -40,6 +40,14 @@ export interface IPluginData extends Document {
   url: string;
 }
 
+export interface IAiConfig extends Document {
+  id: string;
+  activeHandler: string;
+  aiModel: string;
+  apiUrl: string;
+  isEnabled: boolean;
+}
+
 const GroupSchema = new mongoose.Schema<IGroupData>({
   id: { type: String, unique: true, required: true },
   antilink: { type: Boolean, default: false },
@@ -71,9 +79,18 @@ const PluginSchema = new mongoose.Schema<IPluginData>({
   url: { type: String },
 });
 
+const AiConfigSchema = new mongoose.Schema<IAiConfig>({
+  id: { type: String, unique: true, required: true, default: "1" },
+  activeHandler: { type: String, default: "apinex" },
+  aiModel: { type: String, default: "free/gpt-6-luna" },
+  apiUrl: { type: String, default: "https://api.apinex.bond/v1/chat/completions" },
+  isEnabled: { type: Boolean, default: true },
+});
+
 const userData: Model<IUserData> = db1.model<IUserData>("UserData", UserSchema);
 const groupData: Model<IGroupData> = db1.model<IGroupData>("GroupData", GroupSchema);
 const systemData: Model<ISystemData> = db2.model<ISystemData>("SystemData", CoreSchema);
 const pluginData: Model<IPluginData> = db2.model<IPluginData>("PluginData", PluginSchema);
+const aiConfigData: Model<IAiConfig> = db2.model<IAiConfig>("AiConfigData", AiConfigSchema);
 
-export { userData, groupData, systemData, pluginData };
+export { userData, groupData, systemData, pluginData, aiConfigData };
