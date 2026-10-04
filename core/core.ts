@@ -93,7 +93,7 @@ const resolveSenderJid = (
   const cleanSender = sanitizeJid(m.sender);
 
   // 1. Cached LID -> phone JID
-  const cached = global.lidToJidMap?.get(cleanSender);
+  const cached = global.lidToJidMap?.get(cleanSender) || global.lidToJidMap?.get(m.sender);
   if (cached && cached.endsWith("@s.whatsapp.net")) {
     return cached;
   }
@@ -107,13 +107,30 @@ const resolveSenderJid = (
 
   // 3. Group metadata participants
   if (m.isGroup && Array.isArray(participants)) {
-    const match = participants.find(
-      (p: any) => sanitizeJid(p.id) === cleanSender && p.phoneNumber,
-    );
+    const match = participants.find((p: any) => {
+      const pId = sanitizeJid(p.id);
+      const pLid = p.lid ? sanitizeJid(p.lid) : "";
+      return (
+        pId === cleanSender ||
+        pLid === cleanSender ||
+        p.id === m.sender ||
+        p.lid === m.sender
+      );
+    });
     if (match) {
-      const resolved = sanitizeJid(match.phoneNumber);
-      global.lidToJidMap?.set(cleanSender, resolved);
-      return resolved;
+      const phoneCandidate =
+        match.id && match.id.endsWith("@s.whatsapp.net")
+          ? match.id
+          : match.phoneNumber
+            ? (match.phoneNumber.includes("@")
+              ? match.phoneNumber
+              : `${match.phoneNumber.replace(/[^0-9]/g, "")}@s.whatsapp.net`)
+            : null;
+      if (phoneCandidate) {
+        const resolved = sanitizeJid(phoneCandidate);
+        global.lidToJidMap?.set(cleanSender, resolved);
+        return resolved;
+      }
     }
   }
 
@@ -210,29 +227,67 @@ export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
     const budy = typeof m.text === "string" ? m.text : "";
     const isCmd = body.startsWith(prefix);
 
-    const metadata = isGroup ? await Atlas.groupMetadata(from).catch(() => ({})) : {};
+    let metadata: any = {};
+    if (isGroup) {
+      metadata = await Atlas.groupMetadata(from).catch(() => ({}));
+      if (!metadata || !Array.isArray(metadata.participants) || metadata.participants.length === 0) {
+        metadata = (global as any).groupMetadataCache?.get(from) || metadata || {};
+      } else {
+        if (!(global as any).groupMetadataCache) {
+          (global as any).groupMetadataCache = new Map<string, any>();
+        }
+        (global as any).groupMetadataCache.set(from, metadata);
+      }
+    }
+
     const pushname = m.pushName || "NO name";
     const participants = isGroup ? metadata.participants || [] : [sender];
     const quoted = m.quoted ? m.quoted : m;
+
+    if (isGroup && Array.isArray(participants)) {
+      for (const p of participants) {
+        if (p.id && p.lid) {
+          const pPhone = p.id.endsWith("@s.whatsapp.net") ? sanitizeJid(p.id) : null;
+          const pLid = p.lid.endsWith("@lid") ? sanitizeJid(p.lid) : null;
+          if (pPhone && pLid) {
+            global.lidToJidMap?.set(pLid, pPhone);
+            global.lidToJidMap?.set(pPhone, pLid);
+          }
+        }
+      }
+    }
 
     const botNumber = Atlas.decodeJid ? await Atlas.decodeJid(Atlas.user.id) : Atlas.user?.id;
     const botIdClean = sanitizeJid(botNumber);
     const botLid = Atlas.user?.lid ? sanitizeJid(Atlas.user.lid) : botIdClean;
 
+    const adminParticipants = isGroup
+      ? participants.filter((p: any) => p.admin === "admin" || p.admin === "superadmin")
+      : [];
+
     const groupAdmins: string[] = isGroup
-      ? participants
-        .filter((p: any) => p.admin === "admin" || p.admin === "superadmin")
-        .map((p: any) => p.id)
+      ? Array.from(
+          new Set(
+            adminParticipants.flatMap((p: any) =>
+              [p.id, p.lid, p.phoneNumber].filter(Boolean)
+            )
+          )
+        )
       : [];
 
     const isBotAdmin = isGroup
-      ? groupAdmins.includes(botIdClean) ||
-      groupAdmins.includes(botLid) ||
-      groupAdmins.some((admin: any) => sanitizeJid(admin) === botIdClean)
-      : false;
-
-    const isAdmin = isGroup
-      ? groupAdmins.includes(m.sender) || groupAdmins.includes(sanitizeJid(m.sender))
+      ? adminParticipants.some((p: any) => {
+          const pidClean = sanitizeJid(p.id);
+          const plidClean = p.lid ? sanitizeJid(p.lid) : "";
+          return (
+            pidClean === botIdClean ||
+            pidClean === botLid ||
+            plidClean === botLid ||
+            plidClean === botIdClean ||
+            groupAdmins.includes(botIdClean) ||
+            groupAdmins.includes(botLid)
+          );
+        })
       : false;
 
     const resolvedSender = resolveSenderJid(m, botIdClean, botLid, participants);
@@ -246,6 +301,32 @@ export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
     const isCreator =
       ownerDigits.has(resolvedSender.replace(/[^0-9]/g, "")) ||
       ownerDigits.has(m.sender.replace(/[^0-9]/g, ""));
+
+    const senderClean = sanitizeJid(m.sender);
+    const resolvedSenderClean = sanitizeJid(resolvedSender);
+    const senderDigits = m.sender.replace(/[^0-9]/g, "");
+    const resolvedSenderDigits = resolvedSender.replace(/[^0-9]/g, "");
+
+    const isSenderGroupAdmin = isGroup && adminParticipants.some((p: any) => {
+      const pidClean = sanitizeJid(p.id);
+      const plidClean = p.lid ? sanitizeJid(p.lid) : "";
+      const pPhoneClean = p.phoneNumber ? sanitizeJid(p.phoneNumber) : "";
+      const pDigits = p.id ? p.id.replace(/[^0-9]/g, "") : "";
+      const pPhoneDigits = p.phoneNumber ? p.phoneNumber.replace(/[^0-9]/g, "") : "";
+
+      return (
+        pidClean === senderClean ||
+        pidClean === resolvedSenderClean ||
+        plidClean === senderClean ||
+        plidClean === resolvedSenderClean ||
+        pPhoneClean === senderClean ||
+        pPhoneClean === resolvedSenderClean ||
+        (pDigits && (pDigits === senderDigits || pDigits === resolvedSenderDigits)) ||
+        (pPhoneDigits && (pPhoneDigits === senderDigits || pPhoneDigits === resolvedSenderDigits))
+      );
+    });
+
+    const isAdmin = isGroup ? (Boolean(isSenderGroupAdmin) || isCreator) : false;
 
     const messSender = m.sender;
     const itsMe = m.sender.includes(botIdClean.split("@")[0]);
@@ -457,6 +538,7 @@ export default async (Atlas: any, m: any, commands: any, chatUpdate: any) => {
         command: resolvedCommand.name,
         commands,
         toUpper,
+        resolvedSender,
       });
     }
   } catch (e: any) {
