@@ -9,11 +9,18 @@ export default {
   description: "Download and resend view once messages",
 
   start: async (Atlas: any, m: any, { inputCMD, quoted, doReact, prefix }: any) => {
+    const targetChat = process.env.REVIVE_TO || m.from;
+    const sendTargetMsg = (text: string) =>
+      Atlas.sendMessage(
+        targetChat,
+        { text },
+        m.from === targetChat ? { quoted: m } : undefined
+      );
+
     try {
       // Must be a reply to a message
       if (!m.quoted) {
-        await doReact("❌");
-        return m.reply(
+        return sendTargetMsg(
           `Reply to a *view once* message with *${prefix}${inputCMD || "revive"}*`
         );
       }
@@ -21,8 +28,7 @@ export default {
       // Get the raw quoted message from contextInfo
       const contextInfo = m.msg?.contextInfo;
       if (!contextInfo?.quotedMessage) {
-        await doReact("❌");
-        return m.reply("Could not read the quoted message.");
+        return sendTargetMsg("Could not read the quoted message.");
       }
 
       const rawQuoted = contextInfo.quotedMessage;
@@ -35,8 +41,7 @@ export default {
         quotedType === "viewOnceMessageV2Extension";
 
       if (!quotedType) {
-        await doReact("❌");
-        return m.reply("Could not read the quoted message.");
+        return sendTargetMsg("Could not read the quoted message.");
       }
 
       // Case 2: Already unwrapped — imageMessage/videoMessage with viewOnce flag
@@ -47,13 +52,10 @@ export default {
         innerMsg?.viewOnce === true;
 
       if (!isWrappedViewOnce && !isUnwrappedViewOnce) {
-        await doReact("❌");
-        return m.reply(
+        return sendTargetMsg(
           `This is not a view once message.\nReply to a *view once* image or video with *${prefix}${inputCMD || "revive"}*`
         );
       }
-
-      await doReact("⏳");
 
       let mediaMsg, isImage, isVideo;
 
@@ -62,8 +64,7 @@ export default {
         const extracted = extractMessageContent(rawQuoted);
         const mediaType = getContentType(extracted);
         if (!extracted || !mediaType) {
-          await doReact("❌");
-          return m.reply("Could not extract media from the view once message.");
+          return sendTargetMsg("Could not extract media from the view once message.");
         }
         mediaMsg = extracted[mediaType];
         isImage = mediaType.includes("image");
@@ -76,8 +77,7 @@ export default {
       }
 
       if (!mediaMsg) {
-        await doReact("❌");
-        return m.reply("Could not extract media from the view once message.");
+        return sendTargetMsg("Could not extract media from the view once message.");
       }
 
       // Download the media content
@@ -91,8 +91,7 @@ export default {
       }
 
       if (!buffer.length) {
-        await doReact("❌");
-        return m.reply("Failed to download the view once media.");
+        return sendTargetMsg("Failed to download the view once media.");
       }
 
       // Build caption
@@ -100,8 +99,6 @@ export default {
       const caption =
         `👁️ *View Once Revived*\n\n` +
         (originalCaption ? `${originalCaption}\n\n` : "");
-
-      const targetChat = process.env.REVIVE_TO || m.from;
 
       // Send as normal (non-view-once) message
       if (isImage) {
@@ -117,12 +114,9 @@ export default {
           m.from === targetChat ? { quoted: m } : undefined
         );
       }
-
-      await doReact("✅");
     } catch (e: any) {
       console.log("[ REVIVE ERROR ]", e.message);
-      await doReact("❌");
-      m.reply("Failed to revive the view once message. It may have expired.");
+      await sendTargetMsg("Failed to revive the view once message. It may have expired.");
     }
   },
 };
