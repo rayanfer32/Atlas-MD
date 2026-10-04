@@ -1,11 +1,11 @@
 import { extractMessageContent, downloadContentFromMessage, getContentType } from "@whiskeysockets/baileys";
 
-let mergedCommands = ["revive", "viewonce", "vo", "antiviewonce"];
+let mergedCommands = ["revive", "viewonce", "vo", "antiviewonce", "what"];
 
 export default {
   name: "revive",
   alias: [...mergedCommands],
-  uniquecommands: ["revive", "viewonce"],
+  uniquecommands: ["revive", "viewonce", "what"],
   description: "Download and resend view once messages",
 
   start: async (Atlas: any, m: any, { inputCMD, quoted, doReact, prefix }: any) => {
@@ -14,7 +14,7 @@ export default {
       if (!m.quoted) {
         await doReact("❌");
         return m.reply(
-          `Reply to a *view once* message with *${prefix}revive*`
+          `Reply to a *view once* message with *${prefix}${inputCMD || "revive"}*`
         );
       }
 
@@ -49,7 +49,7 @@ export default {
       if (!isWrappedViewOnce && !isUnwrappedViewOnce) {
         await doReact("❌");
         return m.reply(
-          `This is not a view once message.\nReply to a *view once* image or video with *${prefix}revive*`
+          `This is not a view once message.\nReply to a *view once* image or video with *${prefix}${inputCMD || "revive"}*`
         );
       }
 
@@ -101,18 +101,20 @@ export default {
         `👁️ *View Once Revived*\n\n` +
         (originalCaption ? `${originalCaption}\n\n` : "");
 
+      const targetChat = process.env.REVIVE_TO || m.from;
+
       // Send as normal (non-view-once) message
       if (isImage) {
         await Atlas.sendMessage(
-          m.from,
+          targetChat,
           { image: buffer, caption },
-          { quoted: m }
+          m.from === targetChat ? { quoted: m } : undefined
         );
       } else {
         await Atlas.sendMessage(
-          m.from,
+          targetChat,
           { video: buffer, caption },
-          { quoted: m }
+          m.from === targetChat ? { quoted: m } : undefined
         );
       }
 
