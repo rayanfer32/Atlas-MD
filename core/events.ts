@@ -1,4 +1,4 @@
-import { serialize } from "../System/whatsapp.js";
+import { serialize } from "../System/functions.js";
 import welcomeLeft from "../System/Welcome.js";
 import core from "./core.js";
 import { commands } from "../System/ReadCommands.js";

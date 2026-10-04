@@ -7,7 +7,7 @@ import {
   downloadContentFromMessage,
   downloadMediaMessage,
 } from "@whiskeysockets/baileys";
-import { smsg, getBuffer, getSizeMedia } from "../System/functions.js";
+import { serialize, getBuffer, getSizeMedia } from "../System/functions.js";
 import type { AtlasStore } from "./store.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,7 +21,7 @@ function formatPhoneNumber(jid: string): string {
  * Attaches custom helper and convenience methods directly onto the Atlas Baileys socket instance.
  */
 export function attachSocketHelpers(Atlas: any, store: AtlasStore): void {
-  Atlas.serializeM = (m: any) => smsg(Atlas, m, store);
+  Atlas.serializeM = (m: any) => serialize(Atlas, m, store);
 
   Atlas.decodeJid = (jid: string): string => {
     if (!jid) return jid;

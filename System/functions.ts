@@ -1,4 +1,9 @@
-import { proto, getContentType } from "@whiskeysockets/baileys";
+import {
+  proto,
+  getContentType,
+  extractMessageContent,
+  jidNormalizedUser,
+} from "@whiskeysockets/baileys";
 import fs from "node:fs";
 import path from "node:path";
 import util from "node:util";
@@ -144,122 +149,125 @@ export const GIFBufferToVideoBuffer = async (image: Buffer): Promise<Buffer> => 
 };
 
 /**
- * Serialize Message
- * @param {any} conn
- * @param {any} m
- * @param {any} store
+ * Unified Message Serializer
+ * Normalizes incoming Baileys messages into a clean, accessible context object.
+ *
+ * @param {any} Atlas Baileys socket instance
+ * @param {any} m Raw or proto WebMessageInfo
+ * @param {any} store Optional in-memory message store
  */
-export const smsg = (conn: any, m: any, store?: any): any => {
+export const serialize = (Atlas: any, m: any, store?: any): any => {
   if (!m) return m;
   const M = proto.WebMessageInfo;
+  m = M.create(m);
+
   if (m.key) {
-    m.id = m.key.id;
-    m.isBaileys = m.id.startsWith("BAE5") && m.id.length === 16;
-    m.chat = m.key.remoteJid;
+    m.from = jidNormalizedUser(m.key.remoteJid || m.key.participant);
+    m.chat = m.from;
     m.fromMe = m.key.fromMe;
-    m.isGroup = m.chat.endsWith("@g.us");
-    m.sender = conn.decodeJid(
-      (m.fromMe && conn.user?.id) ||
-        m.participant ||
-        m.key.participant ||
-        m.chat ||
-        ""
+    m.id = m.key.id;
+    m.isBot = m.id?.startsWith("BAE5") && m.id.length === 16;
+    m.isBaileys = m.isBot;
+    m.isGroup = m.from?.endsWith("@g.us");
+    m.sender = jidNormalizedUser(
+      (m.fromMe && Atlas.user?.id) || m.key.participant || m.participant || m.from || ""
     );
-    if (m.isGroup) m.participant = conn.decodeJid(m.key.participant) || "";
+    if (m.isGroup) {
+      m.participant = m.key.participant ? jidNormalizedUser(m.key.participant) : "";
+    }
   }
+
   if (m.message) {
-    m.mtype = getContentType(m.message);
-    const mtype = m.mtype as any;
-    m.msg =
-      m.mtype === "viewOnceMessage"
-        ? (m.message as any)[mtype]?.message?.[getContentType((m.message as any)[mtype]?.message) as any]
-        : (m.message as any)[mtype];
-    m.body =
-      m.message.conversation ||
-      m.msg?.caption ||
-      m.msg?.text ||
-      (m.mtype === "listResponseMessage" &&
-        m.msg?.singleSelectReply?.selectedRowId) ||
-      (m.mtype === "buttonsResponseMessage" && m.msg?.selectedButtonId) ||
-      (m.mtype === "viewOnceMessage" && m.msg?.caption) ||
-      m.text;
-    const quoted = (m.quoted = m.msg?.contextInfo
-      ? m.msg.contextInfo.quotedMessage
-      : null);
-    m.mentionedJid = m.msg?.contextInfo ? m.msg.contextInfo.mentionedJid : [];
+    m.message = extractMessageContent(m.message);
+    m.type = getContentType(m.message);
+    m.mtype = m.type;
+    m.msg = m.message?.[m.type];
+    m.mentions = m.msg?.contextInfo ? m.msg?.contextInfo.mentionedJid || [] : [];
+    m.mentionedJid = m.mentions;
+
+    const rawQuoted = m.msg?.contextInfo ? m.msg?.contextInfo.quotedMessage : null;
+    m.quoted = rawQuoted ? extractMessageContent(rawQuoted) : null;
+
     if (m.quoted) {
-      let type: any = getContentType(quoted);
-      m.quoted = m.quoted[type];
-      if (["productMessage"].includes(type)) {
-        type = getContentType(m.quoted);
-        m.quoted = m.quoted[type];
-      }
-      if (typeof m.quoted === "string") {
-        m.quoted = {
-          text: m.quoted,
-        };
-      }
-      m.quoted.mtype = type;
-      m.quoted.id = m.msg.contextInfo.stanzaId;
-      m.quoted.chat = m.msg.contextInfo.remoteJid || m.chat;
-      m.quoted.isBaileys = m.quoted.id
-        ? m.quoted.id.startsWith("BAE5") && m.quoted.id.length === 16
-        : false;
-      m.quoted.sender = conn.decodeJid(m.msg.contextInfo.participant);
-      m.quoted.fromMe = m.quoted.sender === (conn.user && conn.user.id);
+      m.quoted.type = getContentType(m.quoted);
+      m.quoted.mtype = m.quoted.type;
+      m.quoted.msg = m.quoted[m.quoted.type];
+      m.quoted.mentions = m.msg?.contextInfo?.mentionedJid || [];
+      m.quoted.mentionedJid = m.quoted.mentions;
+      m.quoted.id = m.msg?.contextInfo?.stanzaId;
+      m.quoted.sender = jidNormalizedUser(
+        m.msg?.contextInfo?.participant || m.sender
+      );
+      m.quoted.from = m.msg?.contextInfo?.remoteJid || m.from;
+      m.quoted.chat = m.quoted.from;
+      m.quoted.isGroup = m.quoted.from?.endsWith("@g.us");
+      m.quoted.isBot = m.quoted.id?.startsWith("BAE5") && m.quoted.id.length === 16;
+      m.quoted.isBaileys = m.quoted.isBot;
+      m.quoted.fromMe =
+        m.quoted.sender === jidNormalizedUser(Atlas.user && Atlas.user?.id);
       m.quoted.text =
-        m.quoted.text ||
-        m.quoted.caption ||
+        (typeof m.quoted.msg === "string" ? m.quoted.msg : "") ||
+        m.quoted.msg?.text ||
+        m.quoted.msg?.caption ||
+        m.quoted.msg?.conversation ||
         m.quoted.conversation ||
-        m.quoted.contentText ||
-        m.quoted.selectedDisplayText ||
-        m.quoted.title ||
+        m.quoted.msg?.contentText ||
+        m.quoted.msg?.selectedDisplayText ||
+        m.quoted.msg?.title ||
         "";
-      m.quoted.mentionedJid = m.msg.contextInfo
-        ? m.msg.contextInfo.mentionedJid
-        : [];
-      m.getQuotedObj = m.getQuotedMessage = async () => {
-        if (!m.quoted.id || !store) return false;
-        const q = await store.loadMessage(m.chat, m.quoted.id, conn);
-        return smsg(conn, q, store);
-      };
+
       const vM = (m.quoted.fakeObj = M.create({
         key: {
-          remoteJid: m.quoted.chat,
+          remoteJid: m.quoted.from,
           fromMe: m.quoted.fromMe,
           id: m.quoted.id,
         },
-        message: quoted,
-        ...(m.isGroup ? { participant: m.quoted.sender } : {}),
+        message: m.quoted,
+        ...(m.quoted.isGroup ? { participant: m.quoted.sender } : {}),
       }));
 
       m.quoted.delete = () =>
-        conn.sendMessage(m.quoted.chat, { delete: vM.key });
+        Atlas.sendMessage(m.quoted.from, { delete: vM.key });
+
+      m.quoted.download = (pathFile?: string) =>
+        Atlas.downloadMediaMessage(m.quoted.msg, pathFile);
 
       m.quoted.copyNForward = (jid: string, forceForward = false, options = {}) =>
-        conn.copyNForward(jid, vM, forceForward, options);
-
-      m.quoted.download = () => conn.downloadMediaMessage(m.quoted);
+        Atlas.copyNForward ? Atlas.copyNForward(jid, vM, forceForward, options) : undefined;
     }
+
+    m.getQuotedObj = m.getQuotedMessage = async () => {
+      if (!m.quoted?.id || !store) return false;
+      const q = await store.loadMessage(m.from, m.quoted.id, Atlas);
+      return q ? serialize(Atlas, q, store) : false;
+    };
   }
-  m.text =
+
+  m.download = (pathFile?: string) => Atlas.downloadMediaMessage(m.msg, pathFile);
+
+  m.body = m.text =
+    m.message?.conversation ||
+    m.message?.[m.type]?.text ||
+    m.message?.[m.type]?.caption ||
+    m.message?.[m.type]?.contentText ||
+    m.message?.[m.type]?.selectedDisplayText ||
+    m.message?.[m.type]?.title ||
     m.msg?.text ||
     m.msg?.caption ||
-    m.message?.conversation ||
-    m.msg?.contentText ||
-    m.msg?.selectedDisplayText ||
-    m.msg?.title ||
     "";
 
-  m.reply = (text: string | Buffer, chatId = m.chat, options = {}) =>
+  m.reply = (text: string | Buffer, chatId = m.from, options = {}) =>
     Buffer.isBuffer(text)
-      ? conn.sendMedia(chatId, text, "file", "", m, { ...options })
-      : conn.sendText(chatId, text, m, { ...options });
+      ? Atlas.sendFile(chatId, text, "file", "", m, { ...options })
+      : Atlas.sendText(chatId, text, m, { ...options });
 
-  m.copy = () => smsg(conn, M.create(M.toObject(m)), store);
+  m.copy = () => serialize(Atlas, M.create(M.toObject(m)), store);
 
-  m.copyNForward = (jid = m.chat, forceForward = false, options = {}) =>
-    conn.copyNForward(jid, m, forceForward, options);
+  m.copyNForward = (jid = m.from, forceForward = false, options = {}) =>
+    Atlas.copyNForward ? Atlas.copyNForward(jid, m, forceForward, options) : undefined;
 
   return m;
 };
+
+export const smsg = serialize;
+export default serialize;
