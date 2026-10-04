@@ -35,8 +35,8 @@ const botNames = [
 
 export default {
     name: "jimmy",
-    alias: ["jim", "ai"],
-    uniquecommands: ["jim", "ai"],
+    alias: ["jim"],
+    uniquecommands: ["jim"],
     description: "Chat with ChatJimmy Llama 3.1 8B AI with active character and conversation history",
     start: async (
         Atlas: AtlasClient,

@@ -1,6 +1,6 @@
 import axios from "axios";
 import { GoogleGenAI } from "@google/genai";
-import { getGeminiConfig, GEMINI_MODEL, ATLAS_SYSTEM_PROMPT } from "../System/systemPrompt.js";
+import { getGeminiConfig, GEMINI_MODEL, ATLAS_SYSTEM_PROMPT, CUSTOM_SYSTEM_PROMPT } from "../System/systemPrompt.js";
 import { getAiConfig } from "../System/MongoDB/MongoDb_Core.js";
 import { stripEnv } from "./configurations.js";
 
@@ -34,7 +34,7 @@ export async function callApinexAi(
       {
         model,
         messages: [
-          { role: "system", content: ATLAS_SYSTEM_PROMPT },
+          { role: "system", content: CUSTOM_SYSTEM_PROMPT },
           { role: "user", content: promptText },
         ],
       },
