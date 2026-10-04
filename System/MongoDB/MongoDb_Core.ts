@@ -37,6 +37,7 @@ interface SystemCacheEntry {
     seletedCharacter?: string;
     PMchatBot?: boolean;
     botMode?: string;
+    globalAntidelete?: boolean;
   } | null;
   expiresAt: number;
 }
@@ -327,6 +328,60 @@ async function deactivateChatBot(): Promise<void> {
     );
   }
   _setSys({ PMchatBot: false });
+}
+
+// ─── Global Anti-Delete ───────────────────────────────────────────────────────
+
+// ACTIVATE GLOBAL ANTIDELETE
+async function activateGlobalAntidelete(): Promise<void> {
+  const sys = await systemData.findOne({ id: "1" });
+  if (!sys) {
+    await systemData.create({ id: "1", globalAntidelete: true });
+  } else if (!sys.globalAntidelete) {
+    await systemData.findOneAndUpdate(
+      { id: "1" },
+      { $set: { globalAntidelete: true } },
+    );
+  }
+  _setSys({ globalAntidelete: true });
+}
+
+// CHECK GLOBAL ANTIDELETE STATUS
+async function checkGlobalAntidelete(): Promise<boolean> {
+  const cached = _getSys();
+  if (cached?.globalAntidelete !== undefined) return cached.globalAntidelete;
+
+  const envVal = (process.env.GLOBAL_ANTIDELETE || "").split("#")[0].trim().toLowerCase();
+  const defaultFromEnv = envVal === "true";
+
+  const sys = await systemData.findOne({ id: "1" });
+  if (!sys) {
+    _setSys({ globalAntidelete: defaultFromEnv });
+    return defaultFromEnv;
+  }
+  const isEnabled =
+    sys.globalAntidelete !== undefined ? sys.globalAntidelete : defaultFromEnv;
+  _setSys({
+    PMchatBot: sys.PMchatBot,
+    seletedCharacter: sys.seletedCharacter,
+    botMode: sys.botMode,
+    globalAntidelete: isEnabled,
+  });
+  return isEnabled;
+}
+
+// DEACTIVATE GLOBAL ANTIDELETE
+async function deactivateGlobalAntidelete(): Promise<void> {
+  const sys = await systemData.findOne({ id: "1" });
+  if (!sys) {
+    await systemData.create({ id: "1", globalAntidelete: false });
+  } else if (sys.globalAntidelete) {
+    await systemData.findOneAndUpdate(
+      { id: "1" },
+      { $set: { globalAntidelete: false } },
+    );
+  }
+  _setSys({ globalAntidelete: false });
 }
 
 // ─── Bot Mode ─────────────────────────────────────────────────────────────────
@@ -824,6 +879,9 @@ export {
   setAntidelete, // SET ANTI-DELETE
   checkAntidelete, // CHECK ANTI-DELETE STATUS
   delAntidelete, // DELETE ANTI-DELETE
+  activateGlobalAntidelete, // ACTIVATE GLOBAL ANTI-DELETE
+  checkGlobalAntidelete, // CHECK GLOBAL ANTI-DELETE STATUS
+  deactivateGlobalAntidelete, // DEACTIVATE GLOBAL ANTI-DELETE
   setNSFW, // ENABLE NSFW MODE
   checkNSFW, // CHECK NSFW STATUS
   delNSFW, // DISABLE NSFW MODE

@@ -17,6 +17,9 @@ import {
   banGroup,
   checkBanGroup,
   unbanGroup,
+  activateGlobalAntidelete,
+  checkGlobalAntidelete,
+  deactivateGlobalAntidelete,
 } from "../System/MongoDB/MongoDb_Core.js";
 
 import { userData, groupData } from "../System/MongoDB/MongoDB_Schema.js";
@@ -50,6 +53,9 @@ const mergedCommands = [
   "cmdfile",
   "charlist",
   "characters",
+  "globalantidelete",
+  "gantidelete",
+  "antideleteglobal",
 ];
 
 export default {
@@ -69,6 +75,7 @@ export default {
     "mode",
     "getcmd",
     "charlist",
+    "globalantidelete",
   ],
   description: "All Moderator/Owner Commands",
   start: async (
@@ -605,6 +612,51 @@ export default {
           await doReact("❌");
           return m.reply(
             `Please provide On / Off action !\n\n*Example:*\n\n${prefix}pmchatbot on`,
+          );
+        }
+        break;
+      }
+
+      case "globalantidelete":
+      case "gantidelete":
+      case "antideleteglobal": {
+        const chechSenderModStatus = await checkMod(m.sender);
+        if (!chechSenderModStatus && !isCreator && !isintegrated()) {
+          await doReact("❌");
+          return Atlas.sendMessage(m.from, {
+            text: `Sorry, only *Owners* and *Mods* can use this command !`,
+            quoted: m,
+          });
+        }
+        const globalAntidelStatus = await checkGlobalAntidelete();
+        await doReact("🛡️");
+
+        if (args[0] === "on") {
+          if (globalAntidelStatus) {
+            await doReact("❌");
+            return Atlas.sendMessage(m.from, {
+              text: `Global Anti-Delete is already *Enabled* !`,
+              quoted: m,
+            });
+          }
+          await activateGlobalAntidelete();
+          await m.reply(
+            `🛡️ *Global Anti-Delete* has been *Enabled* Successfully !\n\nAll deleted messages in direct messages and groups will be forwarded to the primary owner.`,
+          );
+        } else if (args[0] === "off") {
+          if (!globalAntidelStatus) {
+            await doReact("❌");
+            return Atlas.sendMessage(m.from, {
+              text: `Global Anti-Delete is already *Disabled* !`,
+              quoted: m,
+            });
+          }
+          await deactivateGlobalAntidelete();
+          await m.reply(`🛡️ *Global Anti-Delete* has been *Disabled* Successfully !`);
+        } else {
+          const statusText = globalAntidelStatus ? "*Enabled*" : "*Disabled*";
+          return m.reply(
+            `🛡️ *Global Anti-Delete Status:* ${statusText}\n\n*Usage:*\n• *${prefix}globalantidelete on* - Enable\n• *${prefix}globalantidelete off* - Disable`,
           );
         }
         break;

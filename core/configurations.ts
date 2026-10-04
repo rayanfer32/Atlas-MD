@@ -80,6 +80,8 @@ const claudeAPIKeys = parseKeys(
 );
 const tenorAPIKeys = parseKeys(process.env.TENOR_API_KEY || DEFAULT_TENOR_KEY);
 const apinexApiKey = stripEnv(process.env.APINEX_API_KEY, "");
+const globalAntidelete =
+  stripEnv(process.env.GLOBAL_ANTIDELETE, "false").toLowerCase() === "true";
 
 // Ambient TypeScript typings for globals attached throughout the app lifecycle that are not in ambient.d.ts
 declare global {
@@ -94,6 +96,7 @@ declare global {
   var pickKey: (keys?: string[]) => string | null;
   var isSleeping: boolean;
   var justWokeUp: boolean;
+  var globalAntidelete: boolean;
 }
 
 // Populate global namespace for legacy plugins and runtime consumers
@@ -110,6 +113,7 @@ global.openAiAPIKeys = openAiAPIKeys;
 global.claudeAPIKeys = claudeAPIKeys;
 global.tenorAPIKeys = tenorAPIKeys;
 global.apinexApiKey = apinexApiKey;
+global.globalAntidelete = globalAntidelete;
 
 // Dynamic getter — every access to `tenorApiKey` returns a random key from the pool
 Object.defineProperty(global, "tenorApiKey", {
@@ -132,6 +136,7 @@ export interface BotConfig {
   claudeAPIKeys: string[];
   tenorAPIKeys: string[];
   apinexApiKey: string;
+  globalAntidelete: boolean;
 }
 
 export const config: BotConfig = Object.freeze({
@@ -147,6 +152,7 @@ export const config: BotConfig = Object.freeze({
   claudeAPIKeys,
   tenorAPIKeys,
   apinexApiKey,
+  globalAntidelete,
 });
 
 export default config;

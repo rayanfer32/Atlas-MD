@@ -33,6 +33,7 @@ export interface ISystemData extends Document {
   seletedCharacter: string;
   PMchatBot: boolean;
   botMode: string;
+  globalAntidelete?: boolean;
 }
 
 export interface IPluginData extends Document {
@@ -72,6 +73,7 @@ const CoreSchema = new mongoose.Schema<ISystemData>({
   seletedCharacter: { type: String, default: "0" },
   PMchatBot: { type: Boolean, default: false },
   botMode: { type: String, default: "public" },
+  globalAntidelete: { type: Boolean, default: false },
 });
 
 const PluginSchema = new mongoose.Schema<IPluginData>({
