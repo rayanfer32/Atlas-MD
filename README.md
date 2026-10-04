@@ -1,5 +1,7 @@
 <h1 align="center">⚡ Atlas MD</h1>
 
+[![Best Fork](https://forkfinder.getinfotoyou.com/api/badge/fantox/atlas-md)](https://forkfinder.getinfotoyou.com/repo/fantox/atlas-md)
+
 <p align="center">
   <i>An Opensource WhatsApp bot by <a href="https://github.com/FantoX">FantoX</a> & Team Atlas — built with Baileys Multi-Device for maximum features, stability and compatibility.</i>
 </p>
