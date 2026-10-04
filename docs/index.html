@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atlas-MD — Intelligent WhatsApp Bot & Automation Framework</title>
+  <meta name="description" content="Atlas-MD: Next-generation WhatsApp bot built with Baileys, TypeScript, Dual MongoDB, AI integrations, GitHub ticketing, and Global Anti-Delete security.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+          colors: {
+            sage: {
+              50: '#f6f8f6',
+              100: '#e8ece7',
+              200: '#d1dad0',
+              300: '#b0c0ae',
+              400: '#8ba489',
+              500: '#688666',
+              600: '#526b50',
+              700: '#415540',
+              800: '#2d3b2c',
+              900: '#1b241b',
+              950: '#0e140e',
+            },
+            earth: {
+              sand: '#e4dfd3',
+              linen: '#ece8df',
+              clay: '#b7ab98',
+              moss: '#344534',
+              forest: '#182118',
+              bark: '#231d17',
+              deep: '#0d120d',
+            }
+          },
+          backgroundImage: {
+            'grain': "radial-gradient(rgba(139, 164, 137, 0.08) 1px, transparent 1px)",
+          }
+        }
+      }
+    }
+  </script>
+  
+  <style>
+    /* Custom parallax & organic background accents */
+    body {
+      background-color: #0d120d;
+      color: #e8ece7;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+      overflow-x: hidden;
+    }
+
+    .glass-card {
+      background: linear-gradient(135deg, rgba(27, 36, 27, 0.72) 0%, rgba(14, 20, 14, 0.85) 100%);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(139, 164, 137, 0.16);
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), inset 0 1px 0 0 rgba(209, 218, 208, 0.08);
+    }
+
+    .glass-card-hover {
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-hover:hover {
+      transform: translateY(-4px);
+      border-color: rgba(139, 164, 137, 0.38);
+      box-shadow: 0 26px 50px -15px rgba(27, 36, 27, 0.6), inset 0 1px 0 0 rgba(209, 218, 208, 0.2);
+    }
+
+    /* Parallax floating ambient orbs */
+    .parallax-orb {
+      position: absolute;
+      border-radius: 9999px;
+      filter: blur(90px);
+      pointer-events: none;
+      will-change: transform;
+      transition: transform 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    /* Subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d120d;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #2d3b2c;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #526b50;
+    }
+  </style>
+</head>
+<body class="selection:bg-sage-600 selection:text-white">
+
+  <!-- Ambient Parallax Floating Orbs -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div id="orb-1" class="parallax-orb w-[520px] h-[520px] -top-32 -left-20 bg-sage-700/20" data-speed="0.05"></div>
+    <div id="orb-2" class="parallax-orb w-[640px] h-[640px] top-[40%] -right-40 bg-earth-moss/25" data-speed="-0.04"></div>
+    <div id="orb-3" class="parallax-orb w-[480px] h-[480px] top-[75%] left-[10%] bg-sage-800/20" data-speed="0.06"></div>
+  </div>
+
+  <!-- Background Texture Overlay -->
+  <div class="fixed inset-0 bg-grain bg-[size:24px_24px] pointer-events-none z-0 opacity-40"></div>
+
+  <!-- Sticky Header / Navigation -->
+  <header class="sticky top-0 z-50 border-b border-sage-800/40 bg-earth-deep/80 backdrop-blur-md transition-all">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3.5 group">
+        <div class="w-10 h-10 rounded-xl bg-sage-800/70 border border-sage-500/30 flex items-center justify-center text-sage-300 group-hover:border-sage-400/60 transition shadow-inner">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-bold text-lg tracking-tight text-white flex items-center gap-2">
+            Atlas<span class="text-sage-400 font-mono text-sm uppercase px-1.5 py-0.5 rounded bg-sage-900/80 border border-sage-700/50">MD</span>
+          </div>
+          <p class="text-xs text-sage-400/80 tracking-wide font-mono">v4.1.0 • TypeScript</p>
+        </div>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-sage-200/90">
+        <a href="#features" class="hover:text-sage-300 transition-colors">Key Features</a>
+        <a href="#commands" class="hover:text-sage-300 transition-colors">Commands Catalog</a>
+        <a href="#architecture" class="hover:text-sage-300 transition-colors">Architecture</a>
+        <a href="#quickstart" class="hover:text-sage-300 transition-colors">Developer Quickstart</a>
+      </nav>
+
+      <div class="flex items-center gap-4">
+        <a href="#commands" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-xs sm:text-sm font-medium bg-sage-700 hover:bg-sage-600 text-earth-linen shadow-lg shadow-sage-950/60 transition border border-sage-500/40">
+          <svg class="w-4 h-4 text-sage-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+          Explore Commands
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section with Layered Parallax -->
+  <section class="relative z-10 pt-24 pb-28 px-6 max-w-7xl mx-auto overflow-hidden">
+    <div class="grid lg:grid-cols-12 gap-14 items-center">
+      <div class="lg:col-span-7 space-y-8">
+        <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-sage-900/60 border border-sage-700/50 text-xs font-mono text-sage-300">
+          <span class="w-2 h-2 rounded-full bg-sage-400 animate-pulse"></span>
+          <span>194 Modular WhatsApp Commands</span>
+          <span class="text-sage-600">|</span>
+          <span class="text-sage-400">Global Anti-Delete Active</span>
+        </div>
+
+        <h1 class="text-4xl sm:text-6xl font-serif tracking-tight text-white leading-[1.12]">
+          Intelligent, earthen, & <span class="italic font-normal text-sage-300">resilient</span> WhatsApp automation.
+        </h1>
+
+        <p class="text-base sm:text-lg text-sage-200/80 max-w-2xl leading-relaxed font-light">
+          A TypeScript WhatsApp multi-device bot built on Baileys. Featuring dual-database MongoDB pooling, AI chat personas, GitHub issue reaction ticketing, and persistent anti-delete surveillance.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-4 pt-2">
+          <a href="#commands" class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl font-semibold text-sm bg-sage-600 hover:bg-sage-500 text-white transition shadow-xl shadow-sage-950/80 border border-sage-400/30">
+            <span>Explore Commands</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </a>
+
+          <a href="#features" class="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl font-medium text-sm bg-earth-forest/70 hover:bg-sage-900/80 text-sage-200 transition border border-sage-700/40">
+            <svg class="w-4 h-4 text-sage-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            View Feature Suite
+          </a>
+        </div>
+
+        <!-- Quick metrics bar -->
+        <div class="grid grid-cols-3 gap-6 pt-6 border-t border-sage-800/60 max-w-lg">
+          <div>
+            <div class="text-2xl font-bold text-white font-mono">190+</div>
+            <div class="text-xs text-sage-400/90 uppercase tracking-wider mt-1">Commands</div>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-white font-mono">2× MongoDB</div>
+            <div class="text-xs text-sage-400/90 uppercase tracking-wider mt-1">Load Balance</div>
+          </div>
+          <div>
+            <div class="text-2xl font-bold text-white font-mono">&lt; 30ms</div>
+            <div class="text-xs text-sage-400/90 uppercase tracking-wider mt-1">Revocation Cache</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Interactive Mock Interface (WhatsApp Live Simulation) -->
+      <div class="lg:col-span-5 relative">
+        <div class="glass-card rounded-2xl p-5 border border-sage-700/40 shadow-2xl relative overflow-hidden">
+          <!-- Chat header bar -->
+          <div class="flex items-center justify-between pb-4 mb-4 border-b border-sage-800/70">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-sage-700/60 border border-sage-500/40 flex items-center justify-center font-bold text-white text-sm">
+                AT
+              </div>
+              <div>
+                <div class="text-sm font-semibold text-white flex items-center gap-1.5">
+                  Atlas Bot
+                  <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                </div>
+                <div class="text-xs text-sage-400 font-mono">Online • MD Socket v7.0</div>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 text-[11px] rounded bg-sage-900 border border-sage-700 text-sage-300 font-mono">Global Guard</span>
+          </div>
+
+          <!-- Message stream simulation -->
+          <div class="space-y-3.5 text-xs sm:text-sm font-sans">
+            <!-- Incoming user message -->
+            <div class="flex justify-end">
+              <div class="bg-sage-700 text-earth-linen p-3 rounded-2xl rounded-tr-none max-w-[85%] shadow">
+                <p class="font-mono text-xs text-sage-300 mb-0.5">@rayan</p>
+                <p>-globalantidelete on</p>
+                <div class="text-[10px] text-sage-300/70 text-right mt-1 font-mono">22:04</div>
+              </div>
+            </div>
+
+            <!-- Bot response -->
+            <div class="flex justify-start">
+              <div class="bg-sage-950/80 text-sage-100 p-3.5 rounded-2xl rounded-tl-none border border-sage-800/80 max-w-[90%] shadow-lg">
+                <div class="flex items-center gap-2 font-semibold text-sage-300 mb-1.5">
+                  <span>🛡️</span>
+                  <span>Global Anti-Delete</span>
+                  <span class="text-[10px] bg-sage-800 text-sage-200 px-1.5 py-0.2 rounded font-mono">Enabled</span>
+                </div>
+                <p class="text-xs text-sage-300/90 leading-relaxed">
+                  All revoked messages across direct messages and monitored groups are now automatically captured from the TTL vault and dispatched to the primary owner.
+                </p>
+                <div class="text-[10px] text-sage-500 text-right mt-1.5 font-mono">✓✓ 22:04</div>
+              </div>
+            </div>
+
+            <!-- Revocation Intercept notification card -->
+            <div class="flex justify-start">
+              <div class="bg-earth-moss/30 text-sage-100 p-3 rounded-xl border border-sage-600/30 max-w-[95%]">
+                <div class="flex items-center justify-between text-[11px] text-sage-300 font-mono mb-1">
+                  <span>⚡ INTERCEPTED REVOCATION</span>
+                  <span class="text-sage-400">#vault-recover</span>
+                </div>
+                <p class="text-xs text-earth-sand italic">
+                  "Confidential project deployment credentials: api-key-9283..."
+                </p>
+                <div class="text-[10px] text-sage-400/80 mt-1 flex items-center justify-between">
+                  <span>Sender: @user • DM Chat</span>
+                  <span>Saved to Owner</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Complete Feature Capabilities (Curated Pillars) -->
+  <section id="features" class="relative z-10 py-24 px-6 max-w-7xl mx-auto border-t border-sage-900">
+    <div class="text-center max-w-3xl mx-auto mb-16 space-y-4">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sage-900/80 border border-sage-700/60 text-xs font-mono text-sage-300">
+        Architecture & Capabilities
+      </div>
+      <h2 class="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight">
+        Engineered for reliability, privacy, and community power.
+      </h2>
+      <p class="text-sage-300/80 text-sm sm:text-base font-light">
+        A deep breakdown of the core systems and subsystems running within the Atlas-MD framework.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+      
+      <!-- Feature Card 1 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            🛡️
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Global & Group Anti-Delete</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            Zero message loss. High-speed in-memory message caching with configurable TTL captures revoked text, images, voice notes, stickers, and documents—re-sending to groups or forwarding privately to the bot owner.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /globalantidelete, /antidel</span>
+          <span class="text-emerald-400">Real-time</span>
+        </div>
+      </div>
+
+      <!-- Feature Card 2 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            🤖
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Multi-Model AI Intelligence</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            Powered by APInex, OpenAI GPT, Google Gemini, and Anthropic Claude. Features persistent private chat personas, persona switching, and custom character systems with conversational memory.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /ai, /pmchatbot, /setchar</span>
+          <span class="text-sage-300">Multi-Key Pool</span>
+        </div>
+      </div>
+
+      <!-- Feature Card 3 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            🐙
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">WhatsApp ⇄ GitHub Ticketing</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            React with <code class="font-mono text-sage-300">🙏</code> on any WhatsApp message in mapped groups to instantly dispatch it to GitHub Projects as a tracked issue card with milestone, labels, and auto-sync.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /ghcreate, /ghboard, /ghdone</span>
+          <span class="text-sage-300">GraphQL API</span>
+        </div>
+      </div>
+
+      <!-- Feature Card 4 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            👥
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Autonomous Group Governance</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            Total control over large communities. Anti-link detection with auto-kick, group mute/unmute schedulers, customized welcome/leave graphics, tagall/hidetag broadcasts, and admin security enforcement.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /antilink, /tagall, /welcome</span>
+          <span class="text-sage-300">Auto-Enforce</span>
+        </div>
+      </div>
+
+      <!-- Feature Card 5 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            📥
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">Universal Media Downloader</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            High-speed media extraction for YouTube, Instagram, TikTok (without watermark), Pinterest, Twitter/X, and Facebook. Convert video streams to audio or extract directly with automatic metadata tagging.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /play, /ytmp3, /tiktok, /pin</span>
+          <span class="text-sage-300">Fast Stream</span>
+        </div>
+      </div>
+
+      <!-- Feature Card 6 -->
+      <div class="glass-card glass-card-hover rounded-2xl p-7 flex flex-col justify-between">
+        <div>
+          <div class="w-12 h-12 rounded-xl bg-sage-800/60 border border-sage-600/30 flex items-center justify-center text-sage-300 text-xl mb-5">
+            🎨
+          </div>
+          <h3 class="text-lg font-bold text-white mb-2">50+ 3D Logo & Creative Generators</h3>
+          <p class="text-sm text-sage-300/80 leading-relaxed font-light mb-4">
+            Dynamic image rendering suite. Generate cyber, neon, vintage, stone, matrix, and graffiti 3D typography logos on demand, alongside sticker meme generators, emojimix, and text-to-speech in 8 dialects.
+          </p>
+        </div>
+        <div class="pt-4 border-t border-sage-800/60 flex items-center justify-between text-xs font-mono text-sage-400">
+          <span>Commands: /sticker, /3dneon, /say, /smeme</span>
+          <span class="text-sage-300">50+ Stylizers</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Interactive Commands Catalog Section -->
+  <section id="commands" class="relative z-10 py-24 px-6 max-w-7xl mx-auto border-t border-sage-900">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+      <div>
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sage-900/80 border border-sage-700/60 text-xs font-mono text-sage-300 mb-3">
+          Interactive Command Registry
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight">
+          Explore all 194 Bot Commands
+        </h2>
+        <p class="text-sage-300/80 text-sm mt-2">
+          Filter by functional module or search directly by command name.
+        </p>
+      </div>
+
+      <!-- Search Input -->
+      <div class="w-full md:w-80 relative">
+        <input 
+          type="text" 
+          id="command-search" 
+          placeholder="Search commands (e.g. antidel, ai)..." 
+          class="w-full bg-earth-forest/80 border border-sage-700/60 rounded-xl px-4 py-2.5 pl-10 text-sm text-white placeholder-sage-500 focus:outline-none focus:border-sage-400 transition"
+        >
+        <svg class="w-4 h-4 text-sage-400 absolute left-3.5 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Category Filter Tabs -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-4 mb-8 text-xs font-mono scrollbar-none" id="category-tabs">
+      <button class="cat-btn active px-4 py-2 rounded-lg bg-sage-700 text-white border border-sage-500/50 transition whitespace-nowrap" data-cat="all">All (194)</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="security">Security & Guard</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="group">Group Admin</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="ai">AI & Personas</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="github">GitHub Ticketing</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="download">Downloader</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="creative">Logo & Media</button>
+      <button class="cat-btn px-4 py-2 rounded-lg bg-earth-forest/80 text-sage-300 hover:text-white border border-sage-800 transition whitespace-nowrap" data-cat="tools">Tools & Scrapers</button>
+    </div>
+
+    <!-- Commands Grid -->
+    <div id="command-grid" class="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <!-- Injected via JavaScript -->
+    </div>
+
+    <div id="no-results" class="hidden text-center py-16 text-sage-400 font-mono text-sm">
+      No matching commands found. Try searching another keyword.
+    </div>
+  </section>
+
+  <!-- Technical Architecture & Developer Setup -->
+  <section id="architecture" class="relative z-10 py-24 px-6 max-w-7xl mx-auto border-t border-sage-900">
+    <div class="grid lg:grid-cols-12 gap-12 items-center">
+      <div class="lg:col-span-6 space-y-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-sage-900/80 border border-sage-700/60 text-xs font-mono text-sage-300">
+          Architecture Highlights
+        </div>
+        <h2 class="text-3xl sm:text-4xl font-serif font-bold text-white tracking-tight">
+          Engineered with resilient persistence & failover.
+        </h2>
+        <p class="text-sage-300/80 text-sm leading-relaxed font-light">
+          Unlike single-instance bots that crash under heavy load or lose message context, Atlas-MD implements a multi-layer architectural design:
+        </p>
+
+        <div class="space-y-4 pt-2">
+          <div class="flex items-start gap-3.5">
+            <div class="w-6 h-6 rounded-md bg-sage-800 text-sage-300 flex items-center justify-center font-mono text-xs mt-0.5">1</div>
+            <div>
+              <h4 class="text-sm font-semibold text-white">Dual MongoDB Clustered Connection</h4>
+              <p class="text-xs text-sage-400/90 mt-0.5">Distributes user and group collections across DB1 and DB2 connections to eliminate database bottlenecks.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3.5">
+            <div class="w-6 h-6 rounded-md bg-sage-800 text-sage-300 flex items-center justify-center font-mono text-xs mt-0.5">2</div>
+            <div>
+              <h4 class="text-sm font-semibold text-white">TTL-Expiring In-Memory Message Vault</h4>
+              <p class="text-xs text-sage-400/90 mt-0.5">Captures every incoming message into a bounded queue (default 500 msgs/chat) with automatic background pruning.</p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-3.5">
+            <div class="w-6 h-6 rounded-md bg-sage-800 text-sage-300 flex items-center justify-center font-mono text-xs mt-0.5">3</div>
+            <div>
+              <h4 class="text-sm font-semibold text-white">Automatic Reconnection Watchdog</h4>
+              <p class="text-xs text-sage-400/90 mt-0.5">Periodically verifies WebSocket health, auto-restarts stale connections, and reports status via heartbeat hooks.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quickstart Code Box -->
+      <div id="quickstart" class="lg:col-span-6">
+        <div class="glass-card rounded-2xl p-6 border border-sage-700/50 shadow-2xl">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-sage-800 text-xs font-mono text-sage-400">
+            <span>Terminal Setup</span>
+            <span class="text-emerald-400">Node.js 18+ / TSX</span>
+          </div>
+
+          <div class="bg-earth-deep/90 rounded-xl p-4 font-mono text-xs text-sage-200 space-y-3 border border-sage-900 overflow-x-auto">
+            <div>
+              <span class="text-sage-500"># 1. Clone repository</span><br>
+              <span class="text-sage-300">git clone https://github.com/rayanfer32/Atlas-MD.git</span>
+            </div>
+            <div>
+              <span class="text-sage-500"># 2. Install dependencies</span><br>
+              <span class="text-sage-300">cd Atlas-MD && npm install</span>
+            </div>
+            <div>
+              <span class="text-sage-500"># 3. Configure environment (.env)</span><br>
+              <span class="text-sage-300">cp .env.example .env</span>
+            </div>
+            <div>
+              <span class="text-sage-500"># 4. Launch the bot</span><br>
+              <span class="text-emerald-400">npm start</span>
+            </div>
+          </div>
+
+          <div class="mt-4 pt-4 border-t border-sage-800/60 flex items-center justify-between">
+            <span class="text-xs text-sage-400 font-mono">Ready to deploy on Render, VPS, or PM2</span>
+            <a href="https://github.com/rayanfer32/Atlas-MD" target="_blank" class="text-xs text-sage-300 hover:text-white underline font-mono">
+              View Repository →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="relative z-10 border-t border-sage-900 bg-earth-deep/90 py-12 px-6">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-sage-400/80 font-mono">
+      <div class="flex items-center gap-3">
+        <span class="w-2.5 h-2.5 rounded-full bg-sage-500"></span>
+        <span>Atlas-MD • Designed & Developed by Team Atlas</span>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <a href="#features" class="hover:text-sage-200 transition">Features</a>
+        <a href="#commands" class="hover:text-sage-200 transition">Commands</a>
+        <a href="#quickstart" class="hover:text-sage-200 transition">Quickstart</a>
+        <a href="#" class="hover:text-white transition">Back to Top ↑</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- JavaScript for Interactive Commands and Parallax Effects -->
+  <script>
+    // All 194 Atlas-MD commands mapped with category, descriptions, and role requirement
+    const commandsList = [
+      // Security & Guard
+      { name: "globalantidelete", cat: "security", desc: "Toggle global interception & forward of deleted messages", role: "Owner/Mod" },
+      { name: "antidel", cat: "security", desc: "Toggle anti-delete recovery for the current group", role: "Admin" },
+      { name: "antilink", cat: "security", desc: "Auto-detect and kick users posting WhatsApp group links", role: "Admin" },
+      { name: "ban", cat: "security", desc: "Permanently ban a user from executing bot commands", role: "Owner/Mod" },
+      { name: "unban", cat: "security", desc: "Unban a user account", role: "Owner/Mod" },
+      { name: "banlist", cat: "security", desc: "Display list of all banned accounts", role: "Owner/Mod" },
+      { name: "bangroup", cat: "security", desc: "Blacklist the current group from bot operations", role: "Owner/Mod" },
+      { name: "unbangroup", cat: "security", desc: "Lift group ban", role: "Owner/Mod" },
+
+      // AI & Personas
+      { name: "ai", cat: "ai", desc: "Ask AI any question via APInex / GPT / Gemini", role: "Public" },
+      { name: "pmchatbot", cat: "ai", desc: "Toggle autonomous private message AI chat", role: "Owner/Mod" },
+      { name: "chatbotgc", cat: "ai", desc: "Enable AI chatbot conversation in group", role: "Admin" },
+      { name: "setchar", cat: "ai", desc: "Change the active persona personality ID", role: "Owner/Mod" },
+      { name: "charlist", cat: "ai", desc: "View all built-in bot character voices", role: "Public" },
+      { name: "jim", cat: "ai", desc: "Chat directly with Jimmy voice persona", role: "Public" },
+
+      // Group Management
+      { name: "tagall", cat: "group", desc: "Mention every participant in the group", role: "Admin" },
+      { name: "hidetag", cat: "group", desc: "Broadcast a message with hidden mentions", role: "Admin" },
+      { name: "promote", cat: "group", desc: "Promote participant to group administrator", role: "Admin" },
+      { name: "demote", cat: "group", desc: "Demote administrator to participant", role: "Admin" },
+      { name: "remove", cat: "group", desc: "Kick participant from group", role: "Admin" },
+      { name: "welcome", cat: "group", desc: "Configure custom welcome/goodbye greetings", role: "Admin" },
+      { name: "gclink", cat: "group", desc: "Retrieve group invitation URL", role: "Admin" },
+      { name: "revoke", cat: "group", desc: "Reset and generate a new group invite link", role: "Admin" },
+      { name: "setgcname", cat: "group", desc: "Update group subject title", role: "Admin" },
+      { name: "setgcdesc", cat: "group", desc: "Update group bio description", role: "Admin" },
+      { name: "group", cat: "group", desc: "Open or close group announcements", role: "Admin" },
+      { name: "admins", cat: "group", desc: "List all administrators in group", role: "Public" },
+      { name: "delete", cat: "group", desc: "Delete target message for everyone", role: "Admin" },
+
+      // GitHub Projects
+      { name: "ghcreate", cat: "github", desc: "Create a new issue on GitHub project", role: "Admin" },
+      { name: "ghadd", cat: "github", desc: "Add a task or user story to project", role: "Admin" },
+      { name: "ghboard", cat: "github", desc: "Show current GitHub board column status", role: "Public" },
+      { name: "ghdone", cat: "github", desc: "Mark issue as done / completed", role: "Admin" },
+      { name: "ghcancel", cat: "github", desc: "Cancel or close open issue", role: "Admin" },
+      { name: "ghmove", cat: "github", desc: "Move card between board columns", role: "Admin" },
+      { name: "ghinfo", cat: "github", desc: "View details of mapped GitHub repository", role: "Public" },
+
+      // Downloader
+      { name: "play", cat: "download", desc: "Search and stream YouTube audio", role: "Public" },
+      { name: "mp3", cat: "download", desc: "Download high quality audio from YouTube", role: "Public" },
+      { name: "mp4", cat: "download", desc: "Download YouTube video in MP4 format", role: "Public" },
+      { name: "tiktok", cat: "download", desc: "Download TikTok videos without watermark", role: "Public" },
+      { name: "download", cat: "download", desc: "Multi-platform media downloader", role: "Public" },
+      { name: "pin", cat: "download", desc: "Download Pinterest image / board pins", role: "Public" },
+
+      // Creative & Logos
+      { name: "sticker", cat: "creative", desc: "Convert image, GIF, or video to WhatsApp sticker", role: "Public" },
+      { name: "smeme", cat: "creative", desc: "Create custom meme overlay sticker", role: "Public" },
+      { name: "steal", cat: "creative", desc: "Change sticker packname and author", role: "Public" },
+      { name: "emojimix", cat: "creative", desc: "Combine two emojis into a custom sticker", role: "Public" },
+      { name: "3dneon", cat: "creative", desc: "Render 3D neon glowing typography logo", role: "Public" },
+      { name: "matrix", cat: "creative", desc: "Generate green matrix terminal style logo", role: "Public" },
+      { name: "graffiti", cat: "creative", desc: "Generate street graffiti spray text", role: "Public" },
+      { name: "cyber", cat: "creative", desc: "Generate futuristic cyberpunk logo banner", role: "Public" },
+      { name: "scifi", cat: "creative", desc: "Render deep-space sci-fi banner text", role: "Public" },
+      { name: "joker", cat: "creative", desc: "Dark stylized joker theme text logo", role: "Public" },
+
+      // Tools & Utilities
+      { name: "say", cat: "tools", desc: "Text-to-speech audio converter", role: "Public" },
+      { name: "weather", cat: "tools", desc: "Real-time forecast for any city", role: "Public" },
+      { name: "google", cat: "tools", desc: "Search Google and return key snippets", role: "Public" },
+      { name: "wikipedia", cat: "tools", desc: "Search Wikipedia summaries", role: "Public" },
+      { name: "lyrics", cat: "tools", desc: "Fetch complete song lyrics", role: "Public" },
+      { name: "calc", cat: "tools", desc: "Evaluate mathematical expressions", role: "Public" },
+      { name: "toimg", cat: "tools", desc: "Convert sticker back to image format", role: "Public" },
+      { name: "tourl", cat: "tools", desc: "Upload media to temporary CDN link", role: "Public" },
+      { name: "upscale", cat: "tools", desc: "AI image resolution upscaler", role: "Public" },
+      { name: "alive", cat: "tools", desc: "Check bot latency, uptime, and host specs", role: "Public" }
+    ];
+
+    const commandGrid = document.getElementById("command-grid");
+    const searchInput = document.getElementById("command-search");
+    const catButtons = document.querySelectorAll(".cat-btn");
+    const noResults = document.getElementById("no-results");
+
+    let currentCategory = "all";
+    let searchQuery = "";
+
+    function renderCommands() {
+      commandGrid.innerHTML = "";
+      const filtered = commandsList.filter(cmd => {
+        const matchesCat = currentCategory === "all" || cmd.cat === currentCategory;
+        const matchesSearch = cmd.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              cmd.desc.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCat && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        noResults.classList.remove("hidden");
+      } else {
+        noResults.classList.add("hidden");
+        filtered.forEach(cmd => {
+          const card = document.createElement("div");
+          card.className = "glass-card rounded-xl p-4 transition duration-200 hover:border-sage-500/50 hover:-translate-y-1 flex flex-col justify-between";
+          
+          let roleColor = "text-sage-400 bg-sage-900/60 border-sage-700/50";
+          if (cmd.role === "Owner/Mod") roleColor = "text-amber-300 bg-amber-950/40 border-amber-800/40";
+          if (cmd.role === "Admin") roleColor = "text-emerald-300 bg-emerald-950/40 border-emerald-800/40";
+
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-mono font-bold text-white text-sm">/${cmd.name}</span>
+                <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${roleColor}">${cmd.role}</span>
+              </div>
+              <p class="text-xs text-sage-300/80 leading-relaxed font-light">${cmd.desc}</p>
+            </div>
+            <div class="mt-3 pt-2.5 border-t border-sage-800/40 flex items-center justify-between text-[11px] text-sage-500 font-mono">
+              <span>Category: ${cmd.cat}</span>
+              <span class="hover:text-sage-300 cursor-pointer" onclick="navigator.clipboard.writeText('/${cmd.name}')" title="Copy command">Copy</span>
+            </div>
+          `;
+          commandGrid.appendChild(card);
+        });
+      }
+    }
+
+    // Filter by category
+    catButtons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        catButtons.forEach(b => {
+          b.classList.remove("bg-sage-700", "text-white");
+          b.classList.add("bg-earth-forest/80", "text-sage-300");
+        });
+        btn.classList.add("bg-sage-700", "text-white");
+        btn.classList.remove("bg-earth-forest/80", "text-sage-300");
+        currentCategory = btn.getAttribute("data-cat");
+        renderCommands();
+      });
+    });
+
+    // Search filter
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim();
+      renderCommands();
+    });
+
+    // Initial render
+    renderCommands();
+
+    // Parallax Orb Mouse Movement
+    document.addEventListener("mousemove", (e) => {
+      const mouseX = (e.clientX / window.innerWidth) - 0.5;
+      const mouseY = (e.clientY / window.innerHeight) - 0.5;
+
+      const orb1 = document.getElementById("orb-1");
+      const orb2 = document.getElementById("orb-2");
+      const orb3 = document.getElementById("orb-3");
+
+      if (orb1) orb1.style.transform = `translate(${mouseX * 60}px, ${mouseY * 60}px)`;
+      if (orb2) orb2.style.transform = `translate(${mouseX * -80}px, ${mouseY * -80}px)`;
+      if (orb3) orb3.style.transform = `translate(${mouseX * 40}px, ${mouseY * 40}px)`;
+    });
+
+    // Parallax on Scroll
+    window.addEventListener("scroll", () => {
+      const scrollY = window.scrollY;
+      const orb1 = document.getElementById("orb-1");
+      const orb2 = document.getElementById("orb-2");
+      if (orb1) orb1.style.transform += ` translateY(${scrollY * 0.12}px)`;
+      if (orb2) orb2.style.transform += ` translateY(${scrollY * -0.1}px)`;
+    }, { passive: true });
+  </script>
+</body>
+</html>
