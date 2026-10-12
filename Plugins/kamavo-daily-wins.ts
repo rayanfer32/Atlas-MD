@@ -142,7 +142,7 @@ async function fetchAndFormatReport(): Promise<string> {
             .trim();
 
         if (reply) {
-            return reply;
+            return reply + "\n\n" + message
         }
 
         console.warn("[DAILY WINS] Empty response from ChatJimmy API, falling back to raw report.");
