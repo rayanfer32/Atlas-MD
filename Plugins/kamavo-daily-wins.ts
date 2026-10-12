@@ -94,6 +94,59 @@ async function fetchAndFormatReport(): Promise<string> {
         `_Generated at: ${new Date(data.generatedAt || Date.now()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} (IST)_`
     ].join("\n");
 
+    // Call ChatJimmy with the payload
+    const payload = [
+        {
+            role: "system",
+            content: `You are a sarcastic person and you should reply with good take based on the daily onboarding count, don't mention about the report, our daily Target is 30 users, when we cross a milestone for multiples of 100 users, announce the milestone achieved, don't end with any extra questions`
+        },
+        { role: "user", content: message }
+    ];
+
+    try {
+        const systemPrompt = payload.find((p) => p.role === "system")?.content || "";
+        const userMessages = payload.filter((p) => p.role !== "system");
+
+        const jimmyResponse = await axios.post(
+            "https://chatjimmy.ai/api/chat",
+            {
+                messages: userMessages,
+                chatOptions: {
+                    selectedModel: "llama3.1-8B",
+                    systemPrompt,
+                    topK: 8,
+                },
+                attachment: null,
+            },
+            {
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "*/*",
+                    Origin: "https://chatjimmy.ai",
+                    Referer: "https://chatjimmy.ai/",
+                    "User-Agent":
+                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36",
+                },
+                timeout: 30000,
+            }
+        );
+
+        const rawResponse = jimmyResponse.data;
+        const rawText =
+            typeof rawResponse === "string" ? rawResponse : JSON.stringify(rawResponse);
+        const reply = rawText
+            .replace(/<\|stats\|>[\s\S]*?<\|\/stats\|>/g, "")
+            .trim();
+
+        if (reply) {
+            return reply;
+        }
+
+        console.warn("[DAILY WINS] Empty response from ChatJimmy API, falling back to raw report.");
+    } catch (error: any) {
+        console.error("[DAILY WINS] Failed to fetch ChatJimmy response, falling back to raw report:", error?.message || error);
+    }
+
     return message;
 }
 
