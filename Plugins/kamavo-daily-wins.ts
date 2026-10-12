@@ -74,7 +74,7 @@ async function fetchAndFormatReport(): Promise<string> {
     }
 
     // Build a beautiful, clean markdown message for WhatsApp
-    const message = [
+    const _message = [
         `📊 *Daily Wins Report - ${dateStr}*`,
         `━━━━━━━━━━━━━━━━━━━`,
         dailyStatus,
@@ -92,15 +92,18 @@ async function fetchAndFormatReport(): Promise<string> {
         ``,
         `━━━━━━━━━━━━━━━━━━━`,
         `_Generated at: ${new Date(data.generatedAt || Date.now()).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} (IST)_`
-    ].join("\n");
+    ]
+
+    let payloadMessage = _message.slice(5).join("\n")
+    let message = _message.join("\n");
 
     // Call ChatJimmy with the payload
     const payload = [
         {
             role: "system",
-            content: `You are a sarcastic person and you should reply with good take based on the daily onboarding count, don't mention about the report, our daily Target is 30 users, when we cross a milestone for multiples of 100 users, announce the milestone achieved, don't end with any extra questions`
+            content: `You are a sarcastic person and you should reply with good take based on the daily onboarding count, don't mention about the report, or start with here is the response jargon, reply directly, our daily Target is 30 users, when we cross a milestone for multiples of 100 users, announce the milestone achieved, don't end with any extra questions`
         },
-        { role: "user", content: message }
+        { role: "user", content: payloadMessage }
     ];
 
     try {
