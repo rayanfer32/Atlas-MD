@@ -24,6 +24,11 @@ let mergedCommands = [
   "g",
   "gpt",
   "s",
+  "grok",
+  "pplx",
+  "perplexity",
+  "claude",
+  "bing",
 ];
 
 export default {
@@ -42,6 +47,10 @@ export default {
     "g",
     "gpt",
     "s",
+    "grok",
+    "pplx",
+    "claude",
+    "bing",
   ],
   description: "All picture related commands",
   start: async (Atlas: any, m: any, { inputCMD, text, doReact, prefix, pushName }: any) => {
@@ -84,7 +93,12 @@ export default {
       }
 
       case "g":
-      case "gpt": {
+      case "gpt":
+      case "grok":
+      case "pplx":
+      case "perplexity":
+      case "claude":
+      case "bing": {
         const cleanText = text?.trim() || "";
         const quotedText = (
           m.quoted?.text ||
@@ -96,21 +110,50 @@ export default {
         ).trim();
 
         const query = quotedText && cleanText ? `${quotedText} ${cleanText}` : cleanText || quotedText;
-        const isGpt = inputCMD === "gpt";
 
         if (!query) {
           await doReact("❔");
           return m.reply(
-            `Please provide a ${isGpt ? "prompt" : "search term"} or reply to a message!\n\nExample: *${prefix}${inputCMD} ${
-              isGpt ? "which is the most used coding language" : "who is the most clever minister in the world ?"
-            }*`
+            `Please provide a prompt or search term or reply to a message!\n\nExample: *${prefix}${inputCMD} who is the most clever minister in the world ?*`
           );
         }
 
-        await doReact(isGpt ? "🤖" : "🔍");
-        const url = isGpt
-          ? `https://chatgpt.com/?prompt=${encodeURIComponent(query).replace(/%20/g, "+")}`
-          : `https://www.google.com/ai?q=${encodeURIComponent(query)}`;
+        const encoded = encodeURIComponent(query);
+        const encodedPlus = encoded.replace(/%20/g, "+");
+
+        let url = "";
+        let emoji = "🔍";
+
+        switch (inputCMD) {
+          case "gpt":
+            url = `https://chatgpt.com/?prompt=${encodedPlus}`;
+            emoji = "🤖";
+            break;
+          case "grok":
+            url = `https://grok.com/?q=${encoded}`;
+            emoji = "⚡";
+            break;
+          case "pplx":
+          case "perplexity":
+            url = `https://www.perplexity.ai/search?q=${encoded}`;
+            emoji = "🧠";
+            break;
+          case "claude":
+            url = `https://claude.ai/new?q=${encoded}`;
+            emoji = "✨";
+            break;
+          case "bing":
+            url = `https://www.bing.com/search?q=${encodedPlus}`;
+            emoji = "🔎";
+            break;
+          case "g":
+          default:
+            url = `https://www.google.com/ai?q=${encoded}`;
+            emoji = "🔍";
+            break;
+        }
+
+        await doReact(emoji);
         return m.reply(url);
       }
 
