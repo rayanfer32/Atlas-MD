@@ -23,6 +23,7 @@ let mergedCommands = [
   "wiki",
   "g",
   "gpt",
+  "s",
 ];
 
 export default {
@@ -40,10 +41,48 @@ export default {
     "wikipedia",
     "g",
     "gpt",
+    "s",
   ],
   description: "All picture related commands",
   start: async (Atlas: any, m: any, { inputCMD, text, doReact, prefix, pushName }: any) => {
     switch (inputCMD) {
+      case "s": {
+        const cleanText = text?.trim() || "";
+        const quotedText = (
+          m.quoted?.text ||
+          (typeof m.quoted?.msg === "string" ? m.quoted.msg : "") ||
+          m.quoted?.conversation ||
+          m.quoted?.msg?.text ||
+          m.quoted?.msg?.caption ||
+          ""
+        ).trim();
+
+        const query = quotedText && cleanText ? `${quotedText} ${cleanText}` : cleanText || quotedText;
+
+        if (!query) {
+          await doReact("❔");
+          return m.reply(
+            `Please provide a search term or reply to a message!\n\nExample: *${prefix}s hello*`
+          );
+        }
+
+        await doReact("🔍");
+        const encoded = encodeURIComponent(query);
+        const encodedPlus = encoded.replace(/%20/g, "+");
+
+        const responseMessage =
+          `🔍 *Search Links for:* "${query}"\n\n` +
+          `🌐 *Google:* https://www.google.com/search?q=${encodedPlus}\n` +
+          `🤖 *ChatGPT:* https://chatgpt.com/?prompt=${encodedPlus}\n` +
+          `⚡ *Grok:* https://grok.com/?q=${encoded}\n` +
+          `🧠 *Perplexity:* https://www.perplexity.ai/search?q=${encoded}\n` +
+          `✨ *Claude:* https://claude.ai/new?q=${encoded}\n` +
+          `🔎 *Bing:* https://www.bing.com/search?q=${encodedPlus}\n` +
+          `▶️ *YouTube:* https://www.youtube.com/results?search_query=${encodedPlus}`;
+
+        return m.reply(responseMessage);
+      }
+
       case "g":
       case "gpt": {
         const cleanText = text?.trim() || "";
