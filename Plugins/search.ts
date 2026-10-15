@@ -80,14 +80,13 @@ export default {
         const encodedPlus = encoded.replace(/%20/g, "+");
 
         const responseMessage =
-          `🔍 *Search Links for:* "${query}"\n\n` +
-          `🌐 *Google:* https://www.google.com/search?q=${encodedPlus}\n` +
-          `🤖 *ChatGPT:* https://chatgpt.com/?prompt=${encodedPlus}\n` +
-          `⚡ *Grok:* https://grok.com/?q=${encoded}\n` +
-          `🧠 *Perplexity:* https://www.perplexity.ai/search?q=${encoded}\n` +
-          `✨ *Claude:* https://claude.ai/new?q=${encoded}\n` +
-          `🔎 *Bing:* https://www.bing.com/search?q=${encodedPlus}\n` +
-          `▶️ *YouTube:* https://www.youtube.com/results?search_query=${encodedPlus}`;
+          `Google: https://www.google.com/search?q=${encodedPlus}\n` +
+          `ChatGPT: https://chatgpt.com/?prompt=${encodedPlus}\n` +
+          `Grok: https://grok.com/?q=${encoded}\n` +
+          `Perplexity: https://www.perplexity.ai/search?q=${encoded}\n` +
+          `Claude: https://claude.ai/new?q=${encoded}\n` +
+          `Bing: https://www.bing.com/search?q=${encodedPlus}\n` +
+          `YouTube: https://www.youtube.com/results?search_query=${encodedPlus}`;
 
         return m.reply(responseMessage);
       }
