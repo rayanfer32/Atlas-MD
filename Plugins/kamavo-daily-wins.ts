@@ -97,11 +97,14 @@ async function fetchAndFormatReport(): Promise<string> {
     let payloadMessage = _message.slice(5).join("\n")
     let message = _message.join("\n");
 
+    const SYSTEM_INSTRUCTIONS = `You are a sarcastic person and you should reply with good take based on the daily onboarding counts shown in today's activity on our kamavo app by our ops team, overall totals show the total users on our app.
+INSTRUCTIONS: don't mention about the report, or start with here is the response jargon, reply directly, our daily Target is 30 users, don't end with any extra questions.`
+
     // Call ChatJimmy with the payload
     const payload = [
         {
             role: "system",
-            content: `You are a sarcastic person and you should reply with good take based on the daily onboarding count, don't mention about the report, or start with here is the response jargon, reply directly, our daily Target is 30 users, don't end with any extra questions`
+            content: SYSTEM_INSTRUCTIONS
         },
         { role: "user", content: payloadMessage }
     ];
